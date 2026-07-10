@@ -1,6 +1,3 @@
-export const SUPPORT_CONTACT = "+91 XXXXX XXXXX";
-export const MERCHANT_UPI_ID = "kiranaai@ybl";
-
 const replyTemplates = {
   english: {
     askShopName: "Welcome to Kirana AI! 👋\nWhat is your shop name?",
@@ -9,23 +6,23 @@ const replyTemplates = {
     welcomeUser: (name: string, shop: string) =>
       `Welcome ${name}! 🎉\n${shop} is ready on Kirana AI.\n\nTry these:\n• add 10 soaps\n• sold 5 chips\n• show inventory\n• today report`,
     addSuccess: (qty: number, item: string, total: number, unit: string = "") =>
-      `Added ${qty} ${unit} ${item}! 📦 Total stock: ${total} ${unit}`.replace(/\s+/g, " "),
+      `Added ${qty} ${unit} ${item}! 📦 Total stock: ${total} ${unit}`.replace(/\s+/g, " ").trim(),
     addSuccessWithMerge: (qty: number, unit: string, typed: string, matched: string, total: number) =>
-      `Added ${qty}${unit ? " "+unit : ""} to '${matched}'! 📦 (I matched '${typed}' → '${matched}') Total: ${total}`,
+      `Added ${qty}${unit ? " " + unit : ""} to '${matched}'! 📦 (I matched '${typed}' → '${matched}') Total: ${total}`,
     soldSuccess: (qty: number, item: string, remaining: number, unit: string = "") =>
-      `Sold ${qty} ${unit} ${item}! 🛒 Remaining: ${remaining} ${unit}`.replace(/\s+/g, " "),
+      `Sold ${qty} ${unit} ${item}! 🛒 Remaining: ${remaining} ${unit}`.replace(/\s+/g, " ").trim(),
     lowStock: (item: string, remaining: number, unit: string = "") =>
-      `⚠️ Low stock: ${item} only ${remaining} ${unit} left — reorder soon!`.replace(/\s+/g, " "),
+      `⚠️ Low stock: ${item} only ${remaining} ${unit} left — reorder soon!`.replace(/\s+/g, " ").trim(),
     outOfStock: (item: string) =>
-      `❌ ${item} is out of stock. Please restock first.`,
-    bulkAddSuccess: (lines: string) => 
-      `Stock updated! 📦\n${lines}`,
-    inventoryHeader: (name: string) =>
-      `${name}, here is your inventory:`,
-    reportHeader: (name: string) =>
-      `${name}, here is today's report:`,
+      `❌ ${item} is not in your stock. Add it first (e.g. 'add 10 ${item}').`,
+    inventoryHeader: (name: string) => `${name}, here is your inventory:`,
+    emptyStock: "No stock yet 📭 Try: 'add 10 soaps'",
+    reportHeader: (name: string) => `${name}, here is today's report:`,
+    emptyReport: "No transactions today yet! Start by adding stock 📦",
+    noSalesToday: "Nothing sold today yet 🙂",
     lowStockHeader: (name: string) => `${name}, items to reorder:`,
-    lowStockItem: (item: string, qty: number, unit: string) => `⚠️ ${item}: only ${qty}${unit ? " "+unit : ""} left`,
+    lowStockItem: (item: string, qty: number, unit: string) =>
+      `⚠️ ${item}: only ${qty}${unit ? " " + unit : ""} left`,
     noLowStock: (name: string) => `${name}, all items have good stock! 🟢`,
     reportRevenue: (total: number) => `💰 Total revenue: ₹${total}`,
     askPrice: (item: string) => `What is the selling price of ${item}? (e.g. reply: 40)`,
@@ -34,38 +31,37 @@ const replyTemplates = {
     priceUpdated: (item: string, price: number) => `✅ ${item} price updated to ₹${price}`,
     greeting: (name: string) =>
       `Hey ${name}! 👋 How can I help?\nTry: 'add 10 soaps' or 'show inventory'`,
-    notUnderstood:
-      "Didn't understand 🙏 Try: 'add 5 chips' or 'show inventory'",
-    notUnderstoodHelp: (item1: string, item2: string) => 
-      `Didn't get that 🙏\nTry something like:\n• add 10 ${item1}\n• sold 5 ${item2}\n• show inventory`,
-    bulkDone: "All updates done! 📦",
-    trialExpired: `Your 7-day trial period is over. Please contact support (${SUPPORT_CONTACT}) to upgrade your account and continue using Kirana AI. (No real payment details are needed yet!)`,
+    help:
+      "Here's what I can do 🤖\n• add 10 soaps — add stock\n• sold 5 chips — record a sale\n• show inventory — full stock list\n• low stock — items to reorder\n• today report — today's sales\n• sugar price 45 — set a price",
+    notUnderstood: "Didn't understand 🙏 Try: 'add 5 chips' or 'show inventory'",
+    notUnderstoodLine: (line: string) => `⚠️ Didn't understand: "${line}"`,
+    trialExpired: (support: string) =>
+      `Your trial period is over. Please contact support${support ? ` (${support})` : ""} to activate your account and continue using Kirana AI.`,
   },
   telugu: {
-    askShopName:
-      "Kirana AI ki swaagatam! 👋\nMee shop peru cheppagalaru?",
+    askShopName: "Kirana AI ki swaagatam! 👋\nMee shop peru cheppagalaru?",
     shopRegistered: (shop: string) =>
       `Baagundi! ${shop} register ayyindi ✅\nMee peru cheppandi?`,
     welcomeUser: (name: string, shop: string) =>
       `Swaagatam ${name} anna! 🎉\n${shop} Kirana AI lo ready ga undi.\n\nIvi try cheyyandi:\n• add 10 soaps\n• sold 5 chips\n• show inventory\n• today report`,
     addSuccess: (qty: number, item: string, total: number, unit: string = "") =>
-      `${qty} ${unit} ${item} add chesamu! 📦 Meeru unna stock: ${total} ${unit}`.replace(/\s+/g, " "),
+      `${qty} ${unit} ${item} add chesamu! 📦 Meeru unna stock: ${total} ${unit}`.replace(/\s+/g, " ").trim(),
     addSuccessWithMerge: (qty: number, unit: string, typed: string, matched: string, total: number) =>
-      `'${matched}' ki ${qty}${unit ? " "+unit : ""} add chesamu! 📦 ('${typed}' ante '${matched}' anukunnanu) Total: ${total}`,
+      `'${matched}' ki ${qty}${unit ? " " + unit : ""} add chesamu! 📦 ('${typed}' ante '${matched}' anukunnanu) Total: ${total}`,
     soldSuccess: (qty: number, item: string, remaining: number, unit: string = "") =>
-      `${qty} ${unit} ${item} ammamu! 🛒 Migilina stock: ${remaining} ${unit}`.replace(/\s+/g, " "),
+      `${qty} ${unit} ${item} ammamu! 🛒 Migilina stock: ${remaining} ${unit}`.replace(/\s+/g, " ").trim(),
     lowStock: (item: string, remaining: number, unit: string = "") =>
-      `⚠️ Stock takkuva: ${item} kevalam ${remaining} ${unit} undhi — tvaraga order ivvandi!`.replace(/\s+/g, " "),
+      `⚠️ Stock takkuva: ${item} kevalam ${remaining} ${unit} undhi — tvaraga order ivvandi!`.replace(/\s+/g, " ").trim(),
     outOfStock: (item: string) =>
-      `❌ ${item} stock ledu. Mundu restock cheyyandi.`,
-    bulkAddSuccess: (lines: string) => 
-      `Stock updated! 📦\n${lines}`,
-    inventoryHeader: (name: string) =>
-      `${name} anna, mee inventory idi:`,
-    reportHeader: (name: string) =>
-      `${name} anna, neti report idi:`,
+      `❌ ${item} mee stock lo ledu. Mundu add cheyyandi (e.g. 'add 10 ${item}').`,
+    inventoryHeader: (name: string) => `${name} anna, mee inventory idi:`,
+    emptyStock: "Stock emi ledu 📭 Try: 'add 10 soaps'",
+    reportHeader: (name: string) => `${name} anna, neti report idi:`,
+    emptyReport: "Neti transactions emi levu! Stock add cheyandi 📦",
+    noSalesToday: "Inniki emee ammaledu 🙂",
     lowStockHeader: (name: string) => `${name} anna, ee items order ivvandi:`,
-    lowStockItem: (item: string, qty: number, unit: string) => `⚠️ ${item}: kevalam ${qty}${unit ? " "+unit : ""} undhi`,
+    lowStockItem: (item: string, qty: number, unit: string) =>
+      `⚠️ ${item}: kevalam ${qty}${unit ? " " + unit : ""} undhi`,
     noLowStock: (name: string) => `${name} anna, anni items stock bagundi! 🟢`,
     reportRevenue: (total: number) => `💰 Mottam aaya: ₹${total}`,
     askPrice: (item: string) => `${item} amme dhara enti? (e.g. reply: 40)`,
@@ -74,38 +70,37 @@ const replyTemplates = {
     priceUpdated: (item: string, price: number) => `✅ ${item} dhara update chesamu: ₹${price}`,
     greeting: (name: string) =>
       `Baagundi ${name} anna! 👋 Ela help cheyyali?\nTry: 'add 10 soaps' or 'show inventory'`,
-    notUnderstood:
-      "Artham kaaledu 🙏 Try: 'add 5 chips' or 'show inventory'",
-    notUnderstoodHelp: (item1: string, item2: string) => 
-      `Artham kaaledu 🙏\nIla try cheyyandi:\n• add 10 ${item1}\n• 5 ${item2} ammamu\n• nilava chupandi`,
-    bulkDone: "Anni update ayyayi! 📦",
-    trialExpired: `Mee 7-rojooula trial samayam ayipoyindi. Kirana AI ni thirigi vaadadaaniki account upgrade chesukovali. Kripato support (${SUPPORT_CONTACT}) ni snpradinchandi. (Nija dabbulu ippude em avasaram ledu!)`,
+    help:
+      "Nenu cheyagalanu 🤖\n• add 10 soaps — stock add\n• sold 5 chips — ammakam record\n• show inventory — stock list\n• low stock — order cheyyalsina items\n• today report — neti ammakalu\n• sugar price 45 — dhara set",
+    notUnderstood: "Artham kaaledu 🙏 Try: 'add 5 chips' or 'show inventory'",
+    notUnderstoodLine: (line: string) => `⚠️ Artham kaaledu: "${line}"`,
+    trialExpired: (support: string) =>
+      `Mee trial samayam ayipoyindi. Kirana AI ni thirigi vaadadaaniki support${support ? ` (${support})` : ""} ni sampradinchandi.`,
   },
   hindi: {
-    askShopName:
-      "Kirana AI mein swagat! 👋\nApka shop ka naam kya hai?",
+    askShopName: "Kirana AI mein swagat! 👋\nApka shop ka naam kya hai?",
     shopRegistered: (shop: string) =>
       `Badhiya! ${shop} register ho gaya ✅\nApka naam batayein?`,
     welcomeUser: (name: string, shop: string) =>
       `Swagat hai ${name} bhai! 🎉\n${shop} Kirana AI pe ready hai.\n\nYe try karein:\n• add 10 soaps\n• sold 5 chips\n• show inventory\n• today report`,
     addSuccess: (qty: number, item: string, total: number, unit: string = "") =>
-      `${qty} ${unit} ${item} add ho gaya! 📦 Total stock: ${total} ${unit}`.replace(/\s+/g, " "),
+      `${qty} ${unit} ${item} add ho gaya! 📦 Total stock: ${total} ${unit}`.replace(/\s+/g, " ").trim(),
     addSuccessWithMerge: (qty: number, unit: string, typed: string, matched: string, total: number) =>
-      `'${matched}' mein ${qty}${unit ? " "+unit : ""} add ho gaya! 📦 ('${typed}' se '${matched}' match kiya) Total: ${total}`,
+      `'${matched}' mein ${qty}${unit ? " " + unit : ""} add ho gaya! 📦 ('${typed}' se '${matched}' match kiya) Total: ${total}`,
     soldSuccess: (qty: number, item: string, remaining: number, unit: string = "") =>
-      `${qty} ${unit} ${item} bik gaya! 🛒 Bacha hua: ${remaining} ${unit}`.replace(/\s+/g, " "),
+      `${qty} ${unit} ${item} bik gaya! 🛒 Bacha hua: ${remaining} ${unit}`.replace(/\s+/g, " ").trim(),
     lowStock: (item: string, remaining: number, unit: string = "") =>
-      `⚠️ Stock kam: ${item} sirf ${remaining} ${unit} bacha — jaldi order karo!`.replace(/\s+/g, " "),
+      `⚠️ Stock kam: ${item} sirf ${remaining} ${unit} bacha — jaldi order karo!`.replace(/\s+/g, " ").trim(),
     outOfStock: (item: string) =>
-      `❌ ${item} khatam ho gaya. Pehle restock karo.`,
-    bulkAddSuccess: (lines: string) => 
-      `Stock updated! 📦\n${lines}`,
-    inventoryHeader: (name: string) =>
-      `${name} bhai, aapki inventory:`,
-    reportHeader: (name: string) =>
-      `${name} bhai, aaj ki report:`,
+      `❌ ${item} aapke stock mein nahi hai. Pehle add karo (e.g. 'add 10 ${item}').`,
+    inventoryHeader: (name: string) => `${name} bhai, aapki inventory:`,
+    emptyStock: "Abhi koi stock nahi 📭 Try: 'add 10 soaps'",
+    reportHeader: (name: string) => `${name} bhai, aaj ki report:`,
+    emptyReport: "Aaj koi transaction nahi! Stock add karo 📦",
+    noSalesToday: "Aaj abhi kuch nahi bika 🙂",
     lowStockHeader: (name: string) => `${name} bhai, ye items order karo:`,
-    lowStockItem: (item: string, qty: number, unit: string) => `⚠️ ${item}: sirf ${qty}${unit ? " "+unit : ""} bacha`,
+    lowStockItem: (item: string, qty: number, unit: string) =>
+      `⚠️ ${item}: sirf ${qty}${unit ? " " + unit : ""} bacha`,
     noLowStock: (name: string) => `${name} bhai, sab items ka stock theek hai! 🟢`,
     reportRevenue: (total: number) => `💰 Kul kamai: ₹${total}`,
     askPrice: (item: string) => `${item} ka selling price kya hai? (e.g. reply: 40)`,
@@ -114,21 +109,19 @@ const replyTemplates = {
     priceUpdated: (item: string, price: number) => `✅ ${item} ka price update ho gaya: ₹${price}`,
     greeting: (name: string) =>
       `Kya haal hai ${name} bhai! 👋 Kya help chahiye?\nTry: 'add 10 soaps' ya 'show inventory'`,
-    notUnderstood:
-      "Samajh nahi aaya 🙏 Try: 'add 5 chips' ya 'show inventory'",
-    notUnderstoodHelp: (item1: string, item2: string) => 
-      `Samajh nahi aaya 🙏\nAisa try karein:\n• add 10 ${item1}\n• 5 ${item2} becha\n• stock dikao`,
-    bulkDone: "Sab update ho gaya! 📦",
-    trialExpired: `Aapka 7-din ka trial period khatam ho gaya hai. Kirana AI ka upyog jari rakhne ke liye kripya support (${SUPPORT_CONTACT}) se sampark karein aur account upgrade karein. (Abhi koi real payment details ki zaroorat nahi hai!)`,
+    help:
+      "Main ye kar sakta hoon 🤖\n• add 10 soaps — stock add\n• sold 5 chips — sale record\n• show inventory — stock list\n• low stock — order karne wale items\n• today report — aaj ki bikri\n• sugar price 45 — price set",
+    notUnderstood: "Samajh nahi aaya 🙏 Try: 'add 5 chips' ya 'show inventory'",
+    notUnderstoodLine: (line: string) => `⚠️ Samajh nahi aaya: "${line}"`,
+    trialExpired: (support: string) =>
+      `Aapka trial period khatam ho gaya hai. Kirana AI ka upyog jari rakhne ke liye kripya support${support ? ` (${support})` : ""} se sampark karein.`,
   },
 };
-
-
 
 type Lang = "english" | "telugu" | "hindi";
 
 function getReply(lang: string) {
-  return replyTemplates[(lang as Lang)] ?? replyTemplates.english;
+  return replyTemplates[lang as Lang] ?? replyTemplates.english;
 }
 
 export { replyTemplates, getReply, type Lang };

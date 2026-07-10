@@ -1,8 +1,7 @@
 .git
 node_modules
-scratch
 tests
-.agents
+data
 .env
 *.log
 .gitignore

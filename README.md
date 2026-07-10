@@ -1,6 +1,8 @@
-# 🛒 KiranaAI - Multilingual WhatsApp Inventory Bot
+# 🛒 KiranaAI — Multilingual WhatsApp Inventory Bot
 
-KiranaAI is a smart inventory management assistant designed for small shop owners (Kirana shops) in India. It allows shopkeepers to manage their stock levels using simple WhatsApp messages in their preferred local language.
+KiranaAI is an inventory management assistant for small shop owners (kirana shops) in India. Shopkeepers manage stock by sending plain WhatsApp messages in **English, Hindi, or Telugu** (transliterated).
+
+**Zero external dependencies except WhatsApp.** No AI API, no cloud database, no payment gateway — everything runs locally on your server. The only outbound calls are to the WhatsApp Cloud API to send replies.
 
 <div align="center">
   <img src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" alt="KiranaAI Banner" width="100%">
@@ -8,74 +10,79 @@ KiranaAI is a smart inventory management assistant designed for small shop owner
 
 ## ✨ How It Works
 
-KiranaAI leverages state-of-the-art AI to simplify complex inventory tasks:
-
-1.  **WhatsApp Interface**: Shopkeepers send a message like "10 sabun aaya" (Hindi) or "5 biscuit becha" (Telugu).
-2.  **Gemini AI Processing**: The message is processed by Google's **Gemini 2.0 Flash** model, which:
-    *   Detects the language (English, Hindi, Telugu).
-    *   Identifies the intent (ADD, SELL, or QUERY).
-    *   Extracts item names and quantities (even handling spelling mistakes).
-    *   Generates a polite confirmation reply in the same language.
-3.  **Firebase Firestore**: The parsed data is automatically synchronized with a real-time Firestore database.
-4.  **Instant Reply**: The shopkeeper receives a WhatsApp confirmation with updated stock totals.
+1. **WhatsApp message in**: "10 sabun aaya" (Hindi) or "5 biscuit ammamu" (Telugu) or "add 10 soaps".
+2. **Rule-based parser**: a fast multilingual intent engine detects the language, the intent (add / sell / query / price), quantities, units (kg, ltr, pkt, …) and item names — including fuzzy-matching spellings against your existing inventory ("santoor" → "Santoor Soap").
+3. **Local JSON store**: inventory, transaction logs, and shop profiles are persisted atomically to `data/store.json` on your own machine.
+4. **Instant reply**: confirmation with updated stock totals, in the user's language, with quick-action buttons.
 
 ## 🚀 Features
 
-*   **Multilingual Support**: Fully understands and responds in **Hindi**, **Telugu**, and **English**.
-*   **Intelligent Parsing**: Understands natural language (e.g., "stok dikhao", "sabun khatam ho gaya").
-*   **Real-time Inventory**: Tracks stock ins and outs instantly.
-*   **Transaction Logs**: Maintains a history of all activity for audits.
-*   **Spelling Tolerance**: AI-driven matching handles varied spellings of item names.
+* **Multilingual**: understands and replies in Hindi, Telugu, and English.
+* **Natural language**: "stok dikhao", "5 chips becha", "sold: / 2 parle g" multi-line entries, bulk lines ("added 10 soap 5 chips 2 kg sugar"), decimal quantities ("2.5 kg dal").
+* **Prices & reports**: asks for the price of new items, tracks revenue, daily sales report.
+* **Low-stock alerts**: warns when an item drops below the threshold and lists items to reorder.
+* **Interactive buttons**: View Stock / Today's Report / Low Stock menus.
+* **Hardened webhook**: Meta signature verification (`x-hub-signature-256`), message-ID deduplication, malformed-JSON handling.
+* **Optional local billing**: free-trial gating with manual admin activation via WhatsApp (`activate <phone>`) — no payment gateway involved. Disabled by default.
 
 ## 🛠️ Tech Stack
 
-*   **Runtime**: Node.js (TypeScript)
-*   **AI**: Google Gemini 2.0 Flash (via `@google/generative-ai`)
-*   **Database**: Firebase Firestore
-*   **Messaging**: WhatsApp Cloud API (Meta)
-*   **Server**: Express.js
-*   **Tooling**: `tsx` for execution, `dotenv` for configuration
+* **Runtime**: Node.js 18+ (TypeScript, strict mode, run with `tsx`)
+* **Server**: Express.js
+* **Storage**: local JSON file with atomic debounced writes (`data/store.json`)
+* **Messaging**: WhatsApp Cloud API (Meta) via built-in `fetch`
 
-## 📦 Setup & Installation
+Total production dependencies: `express`, `tsx`, `typescript`. That's it.
+
+## 📦 Setup
 
 ### Prerequisites
-*   Node.js (v18+)
-*   A Meta Developer account with WhatsApp Cloud API configured
-*   A Firebase project with Firestore enabled
-*   A Gemini API Key from [Google AI Studio](https://aistudio.google.com/)
+
+* Node.js v18+ (v22 recommended)
+* A Meta Developer account with WhatsApp Cloud API configured
 
 ### Installation
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/vishnu0496/Kirana-AI.git
-    cd Kirana-AI
-    ```
+```bash
+git clone https://github.com/vishnu0496/Kirana-AI.git
+cd Kirana-AI
+npm install
+cp .env.example .env   # fill in your WhatsApp credentials
+npm run dev
+```
 
-2.  **Install dependencies**:
-    ```bash
-    npm install
-    ```
+Point your WhatsApp webhook to `https://your-server-url/api/webhook/whatsapp` using the `WHATSAPP_VERIFY_TOKEN` you chose. Set `WHATSAPP_APP_SECRET` so incoming webhooks are signature-verified.
 
-3.  **Configure Environment Variables**:
-    Create a `.env` file based on `.env.example`:
-    ```env
-    GEMINI_API_KEY="your_key"
-    WHATSAPP_TOKEN="your_meta_token"
-    WHATSAPP_PHONE_NUMBER_ID="your_phone_id"
-    WHATSAPP_VERIFY_TOKEN="your_secret_verify_token"
-    ```
+### Configuration
 
-4.  **Firebase Config**:
-    Add your `firebase-applet-config.json` to the root directory.
+| Variable | Required | Purpose |
+|---|---|---|
+| `WHATSAPP_TOKEN` | ✅ | Cloud API access token |
+| `WHATSAPP_PHONE_NUMBER_ID` | ✅ | Your WhatsApp phone number ID |
+| `WHATSAPP_VERIFY_TOKEN` | ✅ | Webhook verification handshake secret |
+| `WHATSAPP_APP_SECRET` | recommended | Verifies webhook payload signatures |
+| `PORT` | — | Default `3000` |
+| `DATA_DIR` | — | Store location, default `./data` |
+| `LOW_STOCK_THRESHOLD` | — | Default `5` |
+| `BILLING_ENABLED` | — | Default `false` (everyone has full access) |
+| `TRIAL_DAYS`, `ADMIN_PHONE`, `MERCHANT_UPI_ID`, `SUPPORT_CONTACT` | — | Only used when billing is enabled |
 
-5.  **Run the Server**:
-    ```bash
-    npm run dev
-    ```
+### Docker
 
-6.  **Webhook Setup**:
-    Point your WhatsApp Webhook to `https://your-server-url/api/webhook/whatsapp`.
+```bash
+docker build -t kirana-ai .
+docker run -p 8080:8080 --env-file .env -v kirana-data:/app/data kirana-ai
+```
+
+## 🧪 Tests & checks
+
+```bash
+npm run lint   # TypeScript strict typecheck
+npm test       # parser unit tests + end-to-end webhook tests (mock WhatsApp server)
+```
+
+The e2e suite spawns the real server against a mock WhatsApp Cloud API and exercises onboarding, stock updates, the price queue, reports, signature rejection, and deduplication — no external services needed.
 
 ## 📜 License
+
 MIT
