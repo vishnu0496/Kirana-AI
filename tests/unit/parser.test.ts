@@ -110,6 +110,74 @@ test("unknown for genuinely unparseable input", () => {
   assert.strictEqual(smartParse("???").action, "unknown");
 });
 
+test("undo intent", () => {
+  for (const msg of ["undo", "cancel", "galti ho gayi", "tappu ayindi", "wrong entry"]) {
+    assert.strictEqual(smartParse(msg).action, "undo", msg);
+  }
+});
+
+test("khata credit entries", () => {
+  const cases: [string, string, number][] = [
+    ["ramesh udhaar 50", "ramesh", 50],
+    ["ramesh ko 100 udhaar", "ramesh", 100],
+    ["udhaar suresh 30", "suresh", 30],
+    ["ramesh appu 50", "ramesh", 50],
+    ["sita ko rs 75 udhaar diya", "sita", 75],
+  ];
+  for (const [msg, customer, amount] of cases) {
+    assert.deepStrictEqual(smartParse(msg), { action: "khata_credit", customer, amount }, msg);
+  }
+});
+
+test("khata payments", () => {
+  const cases: [string, string, number][] = [
+    ["ramesh ne 20 diya", "ramesh", 20],
+    ["ramesh paid 30", "ramesh", 30],
+    ["suresh 50 jama", "suresh", 50],
+    ["ramesh 40 katti", "ramesh", 40],
+  ];
+  for (const [msg, customer, amount] of cases) {
+    assert.deepStrictEqual(smartParse(msg), { action: "khata_payment", customer, amount }, msg);
+  }
+});
+
+test("view khata", () => {
+  for (const msg of ["udhaar list", "khata", "appu list", "khata dikhao"]) {
+    assert.strictEqual(smartParse(msg).action, "view_khata", msg);
+  }
+  assert.deepStrictEqual(smartParse("ramesh ka khata"), { action: "view_khata", customer: "ramesh" });
+  assert.deepStrictEqual(smartParse("ramesh ka udhaar kitna hai"), { action: "view_khata", customer: "ramesh" });
+});
+
+test("set stock to absolute value", () => {
+  assert.deepStrictEqual(smartParse("sugar stock 25 karo"), {
+    action: "set_stock", item: "sugar", quantity: 25, unit: "",
+  });
+  assert.deepStrictEqual(smartParse("set soap to 12"), {
+    action: "set_stock", item: "soap", quantity: 12, unit: "",
+  });
+});
+
+test("remove item", () => {
+  assert.deepStrictEqual(smartParse("remove sugar"), { action: "remove_item", item: "sugar" });
+  assert.deepStrictEqual(smartParse("chips hatao"), { action: "remove_item", item: "chips" });
+});
+
+test("week and month reports", () => {
+  for (const msg of ["week report", "hafte ka report", "vaaram report", "this week sales"]) {
+    assert.strictEqual(smartParse(msg).action, "week_report", msg);
+  }
+  for (const msg of ["month report", "mahine ka report", "nela report", "this month sales"]) {
+    assert.strictEqual(smartParse(msg).action, "month_report", msg);
+  }
+});
+
+test("khata does not shadow normal stock lines", () => {
+  assert.strictEqual(smartParse("sold 5 chips").action, "sold");
+  assert.strictEqual(smartParse("add 10 kg sugar").action, "add");
+  assert.strictEqual(smartParse("10 santoor aaya").action, "add");
+});
+
 test("detectLanguage", () => {
   assert.strictEqual(detectLanguage("namaskaram anna"), "telugu");
   assert.strictEqual(detectLanguage("bhai kya haal"), "hindi");

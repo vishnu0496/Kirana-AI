@@ -30,6 +30,12 @@ export interface Billing {
   activatedAt?: string;
 }
 
+export interface KhataAccount {
+  name: string; // display name
+  balance: number; // ₹ the customer owes the shop
+  updatedAt: string;
+}
+
 export interface Shop {
   phone: string;
   shopName: string;
@@ -41,6 +47,7 @@ export interface Shop {
   inventory: Record<string, InventoryItem>; // key: lowercased item name
   logs: Transaction[];
   pendingPriceFor: string[];
+  khata?: Record<string, KhataAccount>; // key: lowercased customer name
 }
 
 export interface OnboardingState {
@@ -305,6 +312,122 @@ export function getTodayTransactions(phone: string): Transaction[] {
       d.getDate() === now.getDate()
     );
   });
+}
+
+export function getTransactionsSince(phone: string, days: number): Transaction[] {
+  const shop = data.shops[phone];
+  if (!shop) return [];
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return shop.logs.filter((t) => new Date(t.timestamp).getTime() >= cutoff);
+}
+
+/** Reverse and remove the most recent stock transaction. */
+export function undoLastTransaction(phone: string): Transaction | null {
+  const shop = data.shops[phone];
+  if (!shop || shop.logs.length === 0) return null;
+
+  const tx = shop.logs.pop()!;
+  const key = tx.item.toLowerCase().trim();
+  const existing = shop.inventory[key];
+  const currentQty = existing?.quantity ?? 0;
+  const restoredQty =
+    tx.action === "ADD" ? Math.max(0, currentQty - tx.quantity) : currentQty + tx.quantity;
+
+  shop.inventory[key] = {
+    name: existing?.name ?? tx.item,
+    quantity: restoredQty,
+    unit: existing?.unit ?? tx.unit,
+    ...(existing?.price !== undefined ? { price: existing.price } : {}),
+    updatedAt: nowIso(),
+  };
+  shop.updatedAt = nowIso();
+  scheduleSave();
+  return tx;
+}
+
+/** Set an item's quantity to an absolute value (stock correction). */
+export function setQuantity(
+  phone: string,
+  item: string,
+  quantity: number,
+  unit: string = ""
+): { finalItem: string; finalUnit: string } | null {
+  const shop = data.shops[phone];
+  if (!shop) return null;
+
+  const fuzzyMatch = findFuzzyMatch(item, Object.values(shop.inventory).map((i) => i.name));
+  const finalItem = fuzzyMatch ?? item;
+  const key = finalItem.toLowerCase().trim();
+  const existing = shop.inventory[key];
+  const finalUnit = unit || existing?.unit || "";
+
+  shop.inventory[key] = {
+    name: existing?.name ?? finalItem,
+    quantity,
+    unit: finalUnit,
+    ...(existing?.price !== undefined ? { price: existing.price } : {}),
+    updatedAt: nowIso(),
+  };
+  shop.updatedAt = nowIso();
+  scheduleSave();
+  return { finalItem: shop.inventory[key].name, finalUnit };
+}
+
+/** Remove an item from inventory entirely. Returns its name, or null if not found. */
+export function removeItem(phone: string, item: string): string | null {
+  const shop = data.shops[phone];
+  if (!shop) return null;
+  const fuzzyMatch = findFuzzyMatch(item, Object.values(shop.inventory).map((i) => i.name));
+  if (!fuzzyMatch) return null;
+  const key = fuzzyMatch.toLowerCase().trim();
+  const name = shop.inventory[key]?.name ?? fuzzyMatch;
+  delete shop.inventory[key];
+  shop.pendingPriceFor = shop.pendingPriceFor.filter((p) => p.toLowerCase() !== key);
+  shop.updatedAt = nowIso();
+  scheduleSave();
+  return name;
+}
+
+// ── Khata (customer credit ledger) ─────────────────────────
+
+/** Positive delta = customer took credit; negative = customer paid back. */
+export function updateKhata(phone: string, customer: string, delta: number): KhataAccount | null {
+  const shop = data.shops[phone];
+  if (!shop) return null;
+  const khata = (shop.khata ??= {});
+  const key = customer.toLowerCase().trim();
+  const existing = khata[key];
+  const account: KhataAccount = {
+    name: existing?.name ?? customer.trim(),
+    balance: Math.round(((existing?.balance ?? 0) + delta) * 100) / 100,
+    updatedAt: nowIso(),
+  };
+  if (account.balance <= 0) {
+    // Settled (or overpaid — treat as settled at zero).
+    account.balance = Math.max(0, account.balance);
+  }
+  khata[key] = account;
+  shop.updatedAt = nowIso();
+  scheduleSave();
+  return account;
+}
+
+export function getKhata(phone: string): KhataAccount[] {
+  const shop = data.shops[phone];
+  if (!shop?.khata) return [];
+  return Object.values(shop.khata)
+    .filter((a) => a.balance > 0)
+    .sort((a, b) => b.balance - a.balance);
+}
+
+export function getKhataAccount(phone: string, customer: string): KhataAccount | null {
+  const shop = data.shops[phone];
+  if (!shop?.khata) return null;
+  const key = customer.toLowerCase().trim();
+  if (shop.khata[key]) return shop.khata[key];
+  // Fuzzy: prefix match on customer names
+  const match = Object.keys(shop.khata).find((k) => k.startsWith(key) || key.startsWith(k));
+  return match ? shop.khata[match] : null;
 }
 
 // ── Billing ────────────────────────────────────────────────

@@ -127,6 +127,62 @@ test("button tap triggers report", async () => {
   assert.match(harness.mock.texts()[0], /report/i);
 });
 
+test("khata: credit, payment, list, settle", async () => {
+  harness.mock.clear();
+
+  const [credit] = await harness.sendUserMessage(USER, "ramesh udhaar 50");
+  assert.match(credit, /Ramesh/);
+  assert.match(credit, /₹50/);
+
+  const [credit2] = await harness.sendUserMessage(USER, "suresh ko 100 udhaar");
+  assert.match(credit2, /Suresh/);
+
+  const [payment] = await harness.sendUserMessage(USER, "ramesh ne 20 diya");
+  assert.match(payment, /₹30/); // 50 - 20 remaining
+
+  const [list] = await harness.sendUserMessage(USER, "udhaar list");
+  assert.match(list, /Ramesh: ₹30/);
+  assert.match(list, /Suresh: ₹100/);
+  assert.match(list, /₹130/); // total
+
+  const [settled] = await harness.sendUserMessage(USER, "ramesh paid 30");
+  assert.match(settled, /✅|saaf|clear|settled/i);
+});
+
+test("undo reverses the last stock entry", async () => {
+  harness.mock.clear();
+  await harness.sendUserMessage(USER, "soap stock 10 karo");
+  await harness.sendUserMessage(USER, "sold 4 soap");
+
+  const [undone] = await harness.sendUserMessage(USER, "undo");
+  assert.match(undone, /↩️/);
+
+  const [inv] = await harness.sendUserMessage(USER, "show inventory");
+  assert.match(inv, /Soap: 10/);
+});
+
+test("set stock and remove item", async () => {
+  harness.mock.clear();
+
+  const [setReply] = await harness.sendUserMessage(USER, "soap stock 25 karo");
+  assert.match(setReply, /✏️/);
+  assert.match(setReply, /25/);
+
+  const [removed] = await harness.sendUserMessage(USER, "remove parle g");
+  assert.match(removed, /🗑️/);
+
+  const [inv] = await harness.sendUserMessage(USER, "show inventory");
+  assert.match(inv, /Soap: 25/);
+  assert.doesNotMatch(inv, /parle/i);
+});
+
+test("week report covers recent sales", async () => {
+  harness.mock.clear();
+  const [report] = await harness.sendUserMessage(USER, "week report");
+  assert.match(report, /7/);
+  assert.match(report, /Soap|soap/);
+});
+
 test("health endpoint", async () => {
   const res = await fetch(`http://127.0.0.1:${harness.serverPort}/health`);
   assert.strictEqual(res.status, 200);

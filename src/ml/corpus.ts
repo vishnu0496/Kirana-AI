@@ -300,6 +300,104 @@ const ADD_TEMPLATES: TemplateSet[] = [
   },
 ];
 
+const WEEK_REPORT: TemplateSet[] = [
+  {
+    lang: "english",
+    templates: [
+      "week report", "weekly report", "this week sales", "weekly summary",
+      "how much did i earn this week", "last 7 days sales", "week total",
+      "show weekly business", "this weeks earnings",
+    ],
+  },
+  {
+    lang: "hindi",
+    templates: [
+      "hafte ka report", "is hafte ki kamai", "hafte ki bikri", "is hafte kitna bika",
+      "hafte ka hisaab", "saptah ka report", "hafte bhar ka total", "is hafte ka business",
+    ],
+  },
+  {
+    lang: "telugu",
+    templates: [
+      "vaaram report", "ee vaaram ammakalu", "vaaram sales enta", "ee vaaram enta vachindi",
+      "vaaram mottham cheppu", "ee vaaram business ela undi", "vaaram lekka",
+    ],
+  },
+];
+
+const MONTH_REPORT: TemplateSet[] = [
+  {
+    lang: "english",
+    templates: [
+      "month report", "monthly report", "this month sales", "monthly summary",
+      "how much did i earn this month", "last 30 days sales", "month total",
+      "show monthly business", "this months earnings",
+    ],
+  },
+  {
+    lang: "hindi",
+    templates: [
+      "mahine ka report", "is mahine ki kamai", "mahine ki bikri", "is mahine kitna bika",
+      "mahine ka hisaab", "mahine bhar ka total", "is mahine ka business", "maheene ka report",
+    ],
+  },
+  {
+    lang: "telugu",
+    templates: [
+      "nela report", "ee nela ammakalu", "nela sales enta", "ee nela enta vachindi",
+      "nela mottham cheppu", "ee nela business ela undi", "nela lekka",
+    ],
+  },
+];
+
+const UNDO: TemplateSet[] = [
+  {
+    lang: "english",
+    templates: [
+      "undo", "cancel", "undo last", "cancel last entry", "delete last entry",
+      "that was a mistake", "wrong entry", "remove last one", "revert that",
+    ],
+  },
+  {
+    lang: "hindi",
+    templates: [
+      "galti ho gayi", "galat ho gaya", "wapas karo", "pichla wala hatao",
+      "galat entry ho gayi", "usko cancel karo", "mistake ho gayi", "last wala galat tha",
+    ],
+  },
+  {
+    lang: "telugu",
+    templates: [
+      "tappu ayindi", "cancel cheyi", "last entry tappu", "adi tappu",
+      "venakki teesuko", "tappuga type chesanu", "last di cancel cheyandi",
+    ],
+  },
+];
+
+const VIEW_KHATA: TemplateSet[] = [
+  {
+    lang: "english",
+    templates: [
+      "udhaar list", "credit list", "khata", "show khata", "who owes me",
+      "customer balances", "pending payments", "credit book", "outstanding list",
+    ],
+  },
+  {
+    lang: "hindi",
+    templates: [
+      "udhaar dikhao", "khata dikhao", "kiska udhaar baaki hai", "kaun kitna dega",
+      "baaki list", "udhaar ka hisaab", "kitna udhaar hai", "khata batao",
+    ],
+  },
+  {
+    lang: "telugu",
+    templates: [
+      "appu list", "appulu chupinchu", "evariki enta appu undi", "baaki evaru unnaru",
+      "appu lekka cheppu", "khata chupinchu", "enta appu undi",
+    ],
+  },
+];
+
 // "other": chit-chat and unrelated messages the bot must NOT act on.
 const OTHER: TemplateSet[] = [
   {
@@ -399,6 +497,10 @@ export function generateCorpus(seed = 42): Sample[] {
   const rand = mulberry32(seed);
   const samples: Sample[] = [
     ...generateSet(REPORT, "report", 8, rand),
+    ...generateSet(WEEK_REPORT, "week_report", 8, rand),
+    ...generateSet(MONTH_REPORT, "month_report", 8, rand),
+    ...generateSet(UNDO, "undo", 8, rand),
+    ...generateSet(VIEW_KHATA, "view_khata", 8, rand),
     ...generateSet(VIEW_STOCK, "view_stock", 8, rand),
     ...generateSet(LOW_STOCK, "low_stock", 8, rand),
     ...generateSet(GREETING, "greeting", 8, rand),

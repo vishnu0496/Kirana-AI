@@ -20,7 +20,9 @@ KiranaAI is an inventory management assistant for small shop owners (kirana shop
 * **Multilingual**: understands and replies in Hindi, Telugu, and English — general phrasing, not fixed keywords ("aaj ki kamai batao", "ivala ammakalu enta", "kya khatam hone wala hai" all work).
 * **Natural language**: "stok dikhao", "5 chips becha", number words ("das sabun aaya", "rendu kg pappu"), "sold: / 2 parle g" multi-line entries, bulk lines ("added 10 soap 5 chips 2 kg sugar"), decimal quantities ("2.5 kg dal").
 * **Self-learning**: a local Naive Bayes model (no AI API) classifies intent/language and keeps learning from your own messages; retrain anytime with `npm run train`.
-* **Prices & reports**: asks for the price of new items, tracks revenue, daily sales report.
+* **Khata (udhaar) ledger**: track customer credit like the paper notebook — "ramesh udhaar 50", "ramesh ne 30 diya", "udhaar list" shows who owes what.
+* **Prices & reports**: asks for the price of new items, tracks revenue; daily, weekly ("hafte ka report") and monthly reports with best-seller highlights.
+* **Undo & corrections**: "undo" / "galti ho gayi" reverses the last entry; "soap stock 25 karo" sets an absolute quantity; "remove chips" deletes an item.
 * **Low-stock alerts**: warns when an item drops below the threshold and lists items to reorder.
 * **Interactive buttons**: View Stock / Today's Report / Low Stock menus.
 * **Hardened webhook**: Meta signature verification (`x-hub-signature-256`), message-ID deduplication, malformed-JSON handling.

@@ -155,6 +155,88 @@ export async function handleIncomingMessage(
         hadQuery = true;
         break;
 
+      case "week_report":
+        results.push(buildReport(sender, ownerName, reply, 7));
+        hadQuery = true;
+        break;
+
+      case "month_report":
+        results.push(buildReport(sender, ownerName, reply, 30));
+        hadQuery = true;
+        break;
+
+      case "undo": {
+        const tx = store.undoLastTransaction(sender);
+        if (!tx) {
+          results.push(reply.nothingToUndo);
+        } else {
+          const newQty = store.getInventory(sender)
+            .find((i) => i.name.toLowerCase() === tx.item.toLowerCase())?.quantity ?? 0;
+          results.push(
+            tx.action === "ADD"
+              ? reply.undoneAdd(tx.quantity, capitalize(tx.item), newQty)
+              : reply.undoneSell(tx.quantity, capitalize(tx.item), newQty)
+          );
+        }
+        hadQuery = true;
+        break;
+      }
+
+      case "set_stock": {
+        const set = store.setQuantity(sender, parsed.item, parsed.quantity, parsed.unit);
+        if (set) results.push(reply.stockSet(capitalize(set.finalItem), parsed.quantity, set.finalUnit));
+        hadQuery = true;
+        break;
+      }
+
+      case "remove_item": {
+        const removed = store.removeItem(sender, parsed.item);
+        results.push(removed ? reply.itemRemoved(capitalize(removed)) : reply.outOfStock(capitalize(parsed.item)));
+        hadQuery = true;
+        break;
+      }
+
+      case "khata_credit": {
+        const account = store.updateKhata(sender, capitalize(parsed.customer), parsed.amount);
+        if (account) results.push(reply.khataCredit(account.name, parsed.amount, account.balance));
+        hadQuery = true;
+        break;
+      }
+
+      case "khata_payment": {
+        const existing = store.getKhataAccount(sender, parsed.customer);
+        if (!existing) {
+          results.push(reply.khataUnknownCustomer(capitalize(parsed.customer)));
+        } else {
+          const account = store.updateKhata(sender, existing.name, -parsed.amount);
+          if (account) results.push(reply.khataPayment(account.name, parsed.amount, account.balance));
+        }
+        hadQuery = true;
+        break;
+      }
+
+      case "view_khata": {
+        if (parsed.customer) {
+          const account = store.getKhataAccount(sender, parsed.customer);
+          results.push(
+            account
+              ? reply.khataCustomer(account.name, account.balance)
+              : reply.khataUnknownCustomer(capitalize(parsed.customer))
+          );
+        } else {
+          const accounts = store.getKhata(sender);
+          if (accounts.length === 0) {
+            results.push(reply.khataEmpty);
+          } else {
+            results.push(reply.khataHeader(ownerName));
+            for (const a of accounts) results.push(`👤 ${a.name}: ₹${a.balance}`);
+            results.push(reply.khataTotal(accounts.reduce((s, a) => s + a.balance, 0)));
+          }
+        }
+        hadQuery = true;
+        break;
+      }
+
       case "add":
       case "sold":
         if (applyStockUpdate(sender, parsed, reply, results)) itemsAddedToQueue = true;
@@ -283,8 +365,12 @@ function applyStockUpdate(
   return false;
 }
 
-function buildReport(sender: string, ownerName: string, reply: Reply): string {
-  const txs = store.getTodayTransactions(sender);
+function buildReport(sender: string, ownerName: string, reply: Reply, days?: number): string {
+  const txs = days ? store.getTransactionsSince(sender, days) : store.getTodayTransactions(sender);
+  const header =
+    days === 7 ? reply.weekReportHeader(ownerName)
+    : days === 30 ? reply.monthReportHeader(ownerName)
+    : reply.reportHeader(ownerName);
   if (txs.length === 0) return reply.emptyReport;
 
   const sells = txs.filter((t) => t.action === "SELL");
@@ -300,16 +386,14 @@ function buildReport(sender: string, ownerName: string, reply: Reply): string {
     sellMap[key].revenue += revenue;
   }
 
-  const sellLines = Object.values(sellMap).map(({ qty, revenue, displayName }) =>
+  const entries = Object.values(sellMap).sort((a, b) => b.revenue - a.revenue || b.qty - a.qty);
+  const sellLines = entries.map(({ qty, revenue, displayName }) =>
     `🛒 ${capitalize(displayName)}: ${qty}${revenue ? ` (₹${revenue})` : ""}`
   );
-  const totalRevenue = Object.values(sellMap).reduce((sum, { revenue }) => sum + revenue, 0);
+  const totalRevenue = entries.reduce((sum, { revenue }) => sum + revenue, 0);
 
-  return [
-    reply.reportHeader(ownerName),
-    "",
-    sellLines.length ? sellLines.join("\n") : reply.noSalesToday,
-    "",
-    reply.reportRevenue(totalRevenue),
-  ].join("\n");
+  const lines = [header, "", sellLines.length ? sellLines.join("\n") : reply.noSalesToday];
+  if (entries.length >= 2) lines.push("", reply.topSeller(capitalize(entries[0].displayName)));
+  lines.push("", reply.reportRevenue(totalRevenue));
+  return lines.join("\n");
 }

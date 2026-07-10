@@ -107,7 +107,14 @@ export type ParseResult =
   | { action: "low_stock" }
   | { action: "view_stock" }
   | { action: "report" }
+  | { action: "week_report" }
+  | { action: "month_report" }
+  | { action: "undo" }
   | { action: "set_price"; item: string; price: number }
+  | { action: "set_stock"; item: string; quantity: number; unit: string }
+  | { action: "remove_item"; item: string }
+  | { action: "khata_credit" | "khata_payment"; customer: string; amount: number }
+  | { action: "view_khata"; customer?: string }
   | { action: "add" | "sold"; item: string; quantity: number; unit: string }
   | { action: "bulk_add" | "bulk_sold"; items: { item: string; quantity: number; unit: string }[] }
   | { action: "unknown" };
@@ -284,24 +291,88 @@ function smartParse(message: string): ParseResult {
     return { action: "greeting" };
   }
 
-  // 3. Low stock
+  // 3. Undo — reverse the last stock entry.
+  if (/^(?:undo|cancel|galti(?:\s+ho\s+gayi)?|galat\s+ho\s+gaya|tappu(?:\s+ayindi)?|wapas\s+karo|cancel\s+cheyi|undo\s+last|delete\s+last|last\s+(?:entry\s+)?cancel)$/.test(msg)) {
+    learnIntent(msg, "undo");
+    return { action: "undo" };
+  }
+
+  // 4. Low stock
   if (/low\s*stock|takkuva\s*stock|kam\s*stock|reorder/.test(msg)) {
     learnIntent(msg, "low_stock");
     return { action: "low_stock" };
   }
 
-  // 4. View stock — standalone keywords or known phrases (never lines with digits,
-  //    those are stock updates like "10 stock aaya").
+  const KHATA_WORD = "(?:udhaar|udhar|khata|khaata|credit|appu|baaki|baki)";
+
+  // 5. Digit-less queries
   if (!/\d/.test(msg)) {
+    // Week / month reports — must run before the generic "report" keyword.
+    const wantsReport = /report|sales|kamai|bikri|hisab|hisaab|summary|ammakalu|total|business/.test(msg);
+    if (wantsReport && /week|hafta|hafte|saptah|vaaram|varam|7\s*din/.test(msg)) {
+      learnIntent(msg, "week_report");
+      return { action: "week_report" };
+    }
+    if (wantsReport && /month|mahina|mahine|maheena|nela\b|nelaki|monthly|30\s*din/.test(msg)) {
+      learnIntent(msg, "month_report");
+      return { action: "month_report" };
+    }
+
+    // Khata views: "udhaar list", "khata dikhao", "ramesh ka khata"
+    const khataAll = new RegExp(`^${KHATA_WORD}\\s*(?:list|dikhao|dikao|batao|chupinchu|cheppu|book)?$`);
+    if (khataAll.test(msg)) {
+      learnIntent(msg, "view_khata");
+      return { action: "view_khata" };
+    }
+    const khataOne = msg.match(new RegExp(`^([a-z][a-z\\s]*?)\\s+(?:ka\\s+|ki\\s+|gadi\\s+)?${KHATA_WORD}(?:\\s+(?:kitna|kitni|entha|enta|batao|cheppu|hai|undi))*$`));
+    if (khataOne) {
+      const customer = cleanItemName(khataOne[1]);
+      if (customer) return { action: "view_khata", customer };
+    }
+
+    // Remove item: "remove sugar", "sugar hatao", "sugar teeseyi"
+    const removeFirst = msg.match(/^(?:remove|delete|hatao|hata do|nikalo|teeseyi|teesivei)\s+(.+)$/);
+    const removeLast = msg.match(/^(.+?)\s+(?:hatao|hata\s*do|remove|delete|nikalo|teeseyi|teesivei|teesey)$/);
+    const removed = removeFirst?.[1] ?? removeLast?.[1];
+    if (removed) {
+      const item = cleanItemName(removed);
+      if (item) return { action: "remove_item", item };
+    }
+
+    // View stock — standalone keywords or known phrases (never lines with
+    // digits, those are stock updates like "10 stock aaya").
     if (["stock", "list", "nilava", "inventory", "maal"].includes(msg) ||
         inventoryWords.some((w) => msg.includes(w))) {
       learnIntent(msg, "view_stock");
       return { action: "view_stock" };
     }
-    // 5. Report
     if (reportWords.some((w) => msg.includes(w))) {
       learnIntent(msg, "report");
       return { action: "report" };
+    }
+  }
+
+  // 5.5 Khata entries (digits + customer name) — must run before the generic
+  // quantity rules or "ramesh ko 50 udhaar" becomes "add 50 udhaar".
+  {
+    const credit =
+      msg.match(new RegExp(`^([a-z][a-z\\s]*?)\\s+(?:ko\\s+)?(?:rs\\.?|₹)?\\s*(\\d+(?:\\.\\d+)?)\\s*(?:ka\\s+|ki\\s+)?${KHATA_WORD}(?:\\s+(?:diya|diya hai|ichanu|icha|pettanu|likho|add))?$`)) ||
+      msg.match(new RegExp(`^([a-z][a-z\\s]*?)\\s+${KHATA_WORD}\\s+(?:rs\\.?|₹)?\\s*(\\d+(?:\\.\\d+)?)$`)) ||
+      msg.match(new RegExp(`^${KHATA_WORD}\\s+([a-z][a-z\\s]*?)\\s+(?:rs\\.?|₹)?\\s*(\\d+(?:\\.\\d+)?)$`));
+    if (credit) {
+      const customer = cleanItemName(credit[1]);
+      const amount = parseQty(credit[2]);
+      if (customer && amount > 0) return { action: "khata_credit", customer, amount };
+    }
+
+    const payment =
+      msg.match(/^([a-z][a-z\s]*?)\s+ne\s+(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(?:rupay[ae]?\s+)?(?:diya|diye|de diya|wapas kiya|lauta diya)$/) ||
+      msg.match(/^([a-z][a-z\s]*?)\s+(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(?:paid|jama|jama kiya|wapas|vapas|katti|kattadu|kattindi|ichadu|ichindi|return)$/) ||
+      msg.match(/^([a-z][a-z\s]*?)\s+(?:paid|jama)\s+(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)$/);
+    if (payment) {
+      const customer = cleanItemName(payment[1]);
+      const amount = parseQty(payment[2]);
+      if (customer && amount > 0) return { action: "khata_payment", customer, amount };
     }
   }
 
@@ -319,6 +390,18 @@ function smartParse(message: string): ParseResult {
       const price = parseQty(m[priceIdx]);
       if (item && !isNaN(price)) return { action: "set_price", item, price };
     }
+  }
+
+  // 6.5 Stock correction to an absolute value: "sugar stock 25 karo",
+  //     "set soap to 12". Must precede the generic number rules.
+  const setStock =
+    msg.match(new RegExp(`^(.+?)\\s+stock\\s+(${QTY})\\s*(${UNIT_PATTERN})?\\s*(?:karo|kar do|cheyi|pettu|rakho|set)?$`, "i")) ||
+    msg.match(new RegExp(`^set\\s+(.+?)\\s+(?:to\\s+)?(${QTY})\\s*(${UNIT_PATTERN})?$`, "i"));
+  if (setStock) {
+    const item = cleanItemName(setStock[1]);
+    const quantity = parseQty(setStock[2]);
+    const unit = normalizeUnit(setStock[3]);
+    if (item && !isNaN(quantity)) return { action: "set_stock", item, quantity, unit };
   }
 
   // 7. Bulk lines: "add 10 soap 5 chips 2kg sugar" (two or more qty+item pairs)
@@ -356,16 +439,22 @@ function smartParse(message: string): ParseResult {
     }
   }
 
-  // 10. ML fallback: the rules gave up, ask the classifier. Only query
-  //     intents are safe to act on without extracted quantities/items.
+  // 10. ML fallback: the rules gave up, ask the classifier. Only intents
+  //     that need no extracted quantities/items are safe to act on.
   if (!/\d/.test(msg)) {
     const p = classifyIntent(msg);
     if (p.confidence >= ML_CONFIDENCE) {
-      if (p.label === "greeting") return { action: "greeting" };
-      if (p.label === "help") return { action: "help" };
-      if (p.label === "view_stock") return { action: "view_stock" };
-      if (p.label === "report") return { action: "report" };
-      if (p.label === "low_stock") return { action: "low_stock" };
+      switch (p.label) {
+        case "greeting": return { action: "greeting" };
+        case "help": return { action: "help" };
+        case "view_stock": return { action: "view_stock" };
+        case "report": return { action: "report" };
+        case "week_report": return { action: "week_report" };
+        case "month_report": return { action: "month_report" };
+        case "low_stock": return { action: "low_stock" };
+        case "view_khata": return { action: "view_khata" };
+        case "undo": return { action: "undo" };
+      }
     }
   }
 
