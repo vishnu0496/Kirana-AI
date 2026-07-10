@@ -1,3 +1,6 @@
+export const SUPPORT_CONTACT = "+91 XXXXX XXXXX";
+export const MERCHANT_UPI_ID = "kiranaai@ybl";
+
 const replyTemplates = {
   english: {
     askShopName: "Welcome to Kirana AI! 👋\nWhat is your shop name?",
@@ -36,6 +39,7 @@ const replyTemplates = {
     notUnderstoodHelp: (item1: string, item2: string) => 
       `Didn't get that 🙏\nTry something like:\n• add 10 ${item1}\n• sold 5 ${item2}\n• show inventory`,
     bulkDone: "All updates done! 📦",
+    trialExpired: `Your 7-day trial period is over. Please contact support (${SUPPORT_CONTACT}) to upgrade your account and continue using Kirana AI. (No real payment details are needed yet!)`,
   },
   telugu: {
     askShopName:
@@ -75,6 +79,7 @@ const replyTemplates = {
     notUnderstoodHelp: (item1: string, item2: string) => 
       `Artham kaaledu 🙏\nIla try cheyyandi:\n• add 10 ${item1}\n• 5 ${item2} ammamu\n• nilava chupandi`,
     bulkDone: "Anni update ayyayi! 📦",
+    trialExpired: `Mee 7-rojooula trial samayam ayipoyindi. Kirana AI ni thirigi vaadadaaniki account upgrade chesukovali. Kripato support (${SUPPORT_CONTACT}) ni snpradinchandi. (Nija dabbulu ippude em avasaram ledu!)`,
   },
   hindi: {
     askShopName:
@@ -114,6 +119,7 @@ const replyTemplates = {
     notUnderstoodHelp: (item1: string, item2: string) => 
       `Samajh nahi aaya 🙏\nAisa try karein:\n• add 10 ${item1}\n• 5 ${item2} becha\n• stock dikao`,
     bulkDone: "Sab update ho gaya! 📦",
+    trialExpired: `Aapka 7-din ka trial period khatam ho gaya hai. Kirana AI ka upyog jari rakhne ke liye kripya support (${SUPPORT_CONTACT}) se sampark karein aur account upgrade karein. (Abhi koi real payment details ki zaroorat nahi hai!)`,
   },
 };
 

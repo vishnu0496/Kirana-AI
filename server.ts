@@ -4,15 +4,18 @@ import axios from "axios";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import admin from "firebase-admin";
 import dotenv from "dotenv";
+import crypto from "crypto";
 
 import { smartParse, detectLanguage, cleanItemName, capitalize, addVerbs, soldVerbs, priceWords } from "./src/parser";
-import { replyTemplates, getReply, Lang } from "./src/templates";
+import { replyTemplates, getReply, Lang, MERCHANT_UPI_ID } from "./src/templates";
 import { 
   getUser, saveUser, updateStock, getInventory, 
   logTransaction, getTodayTransactions,
   getOnboardingState, setOnboardingState, clearOnboardingState,
-  setItemPrice, getItemPrice, getPriceQueue, addToPriceQueue, shiftPriceQueue
+  setItemPrice, getItemPrice, getPriceQueue, addToPriceQueue, shiftPriceQueue,
+  logParserMetric, checkAndRegisterMessageId, setBillingStatus
 } from "./src/database";
+import { checkAccess } from "./src/billing";
 
 dotenv.config();
 
@@ -21,6 +24,7 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "KIRANA_SECRET";
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const WHATSAPP_BASE_URL = process.env.WHATSAPP_BASE_URL || "https://graph.facebook.com";
 
 process.on("SIGTERM", () => {
   console.log("[SERVER] SIGTERM received, shutting down gracefully");
@@ -39,7 +43,97 @@ process.on("unhandledRejection", (reason) => {
 
 const genAI = new GoogleGenerativeAI(GEMINI_KEY || "");
 const app = express();
-app.use(bodyParser.json());
+app.use(bodyParser.json({
+  verify: (req: any, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+
+app.post("/api/webhook/razorpay", async (req: any, res: any) => {
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error("[RAZORPAY WEBHOOK ERROR] RAZORPAY_WEBHOOK_SECRET is not configured.");
+    return res.status(500).json({ error: "Webhook secret not configured" });
+  }
+
+  const signature = req.headers["x-razorpay-signature"] as string;
+  if (!signature) {
+    console.warn("[RAZORPAY WEBHOOK ERROR] Missing x-razorpay-signature header");
+    return res.status(400).json({ error: "Missing signature header" });
+  }
+
+  const rawBody = req.rawBody;
+  if (!rawBody) {
+    console.warn("[RAZORPAY WEBHOOK ERROR] Missing rawBody");
+    return res.status(400).json({ error: "Missing raw body" });
+  }
+
+  // Compute HMAC SHA256 of the raw body
+  const computedSignature = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody)
+    .digest("hex");
+
+  // Timing-safe verification converting signatures to buffers of equal length first
+  const computedBuffer = Buffer.from(computedSignature, "hex");
+  const expectedBuffer = Buffer.from(signature, "hex");
+
+  if (computedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(computedBuffer, expectedBuffer)) {
+    console.warn("[RAZORPAY WEBHOOK ERROR] Signature verification failed");
+    return res.status(400).json({ error: "Signature verification failed" });
+  }
+
+  try {
+    const payload = req.body;
+    if (!payload) {
+      return res.status(400).json({ error: "Malformed payload: missing body" });
+    }
+
+    if (payload.event !== "payment.captured") {
+      console.log(`[RAZORPAY WEBHOOK] Event ignored: ${payload.event}`);
+      return res.status(200).json({ status: "ignored", event: payload.event });
+    }
+
+    const payment = payload.payload?.payment?.entity;
+    if (!payment) {
+      return res.status(400).json({ error: "Malformed payload: missing payment entity" });
+    }
+
+    const rawPhone = payment.notes?.phone || payment.contact;
+    if (!rawPhone) {
+      return res.status(400).json({ error: "No phone number found in notes or contact" });
+    }
+
+    // Strip all non-digit characters to normalize
+    const phone = rawPhone.replace(/\D/g, "");
+    if (!phone) {
+      return res.status(400).json({ error: "Invalid contact or phone number format" });
+    }
+
+    // Verify if the shop profile exists in Firestore (retrieve via getUser(phone)).
+    let targetPhone = phone;
+    let shopProfile = await getUser(targetPhone);
+    
+    // Check if 10-digit phone number needs 91 prepending
+    if (!shopProfile && phone.length === 10) {
+      targetPhone = "91" + phone;
+      shopProfile = await getUser(targetPhone);
+    }
+
+    if (!shopProfile) {
+      console.warn(`[RAZORPAY WEBHOOK ERROR] Shop not found for phone: ${targetPhone}`);
+      return res.status(404).json({ error: "Shop profile not found" });
+    }
+
+    // Update the shop's billing status to "active"
+    await setBillingStatus(targetPhone, "active");
+    console.log(`[RAZORPAY WEBHOOK SUCCESS] Activated billing for shop: ${targetPhone}`);
+    return res.status(200).json({ success: true });
+  } catch (err: any) {
+    console.error("[RAZORPAY WEBHOOK ERROR] Failed to process database update:", err.message);
+    return res.status(500).json({ error: "Database error or processing error" });
+  }
+});
 
 async function parseMessageWithAI(messageText: string): Promise<any> {
   if (!GEMINI_KEY) return null;
@@ -60,23 +154,72 @@ async function parseMessageWithAI(messageText: string): Promise<any> {
 
 async function parseMessage(message: string): Promise<any> {
   const ruleResult = smartParse(message);
-  if (ruleResult.action !== "unknown") return ruleResult;
+  if (ruleResult.action !== "unknown") return { ...ruleResult, parsedBy: "regex" };
   try {
     const aiResult = await parseMessageWithAI(message);
-    if (aiResult?.action) return { ...aiResult, action: aiResult.action.toLowerCase() };
+    if (aiResult?.action) return { ...aiResult, action: aiResult.action.toLowerCase(), parsedBy: "gemini" };
   } catch (err) { console.log("[FALLBACK] Gemini unavailable"); }
-  return { action: "not_understood" };
+  return { action: "not_understood", parsedBy: "unknown" };
 }
 
 async function sendWhatsAppMessage(to: string, text: string) {
   if (!WHATSAPP_TOKEN || !PHONE_ID) return;
   try {
-    await axios.post(`https://graph.facebook.com/v20.0/${PHONE_ID}/messages`, {
+    await axios.post(`${WHATSAPP_BASE_URL}/v20.0/${PHONE_ID}/messages`, {
       messaging_product: "whatsapp", recipient_type: "individual", to, type: "text", text: { body: text },
     }, { headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, "Content-Type": "application/json" } });
     console.log(`[WA] Sent to ${to}: ${text.substring(0, 50)}...`);
   } catch (error: any) { console.error("[WA ERROR]", error.response?.data || error.message); }
 }
+
+async function sendWhatsAppInteractiveButtons(to: string, bodyText: string, buttons: { id: string; title: string }[]) {
+  if (!WHATSAPP_TOKEN || !PHONE_ID) return;
+  try {
+    await axios.post(`${WHATSAPP_BASE_URL}/v20.0/${PHONE_ID}/messages`, {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: bodyText },
+        action: {
+          buttons: buttons.map(b => ({
+            type: "reply",
+            reply: { id: b.id, title: b.title }
+          }))
+        }
+      }
+    }, { headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, "Content-Type": "application/json" } });
+    console.log(`[WA BUTTONS] Sent to ${to}: ${bodyText.substring(0, 50)}...`);
+  } catch (error: any) { console.error("[WA BUTTONS ERROR]", error.response?.data || error.message); }
+}
+
+async function sendWhatsAppImage(to: string, imageUrl: string, captionText?: string) {
+  if (!WHATSAPP_TOKEN || !PHONE_ID) return;
+  try {
+    await axios.post(`${WHATSAPP_BASE_URL}/v20.0/${PHONE_ID}/messages`, {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "image",
+      image: {
+        link: imageUrl,
+        caption: captionText || ""
+      }
+    }, { headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, "Content-Type": "application/json" } });
+    console.log(`[WA IMAGE] Sent to ${to}: ${imageUrl}`);
+  } catch (error: any) { console.error("[WA IMAGE ERROR]", error.response?.data || error.message); }
+}
+
+async function sendWhatsAppMessageWithQuickActions(to: string, text: string) {
+  const buttons = [
+    { id: "menu_inventory", title: "📦 View Stock" },
+    { id: "menu_report", title: "💰 Today's Report" }
+  ];
+  await sendWhatsAppInteractiveButtons(to, text, buttons);
+}
+
 
 app.get("/api/webhook/whatsapp", (req, res) => {
   const mode = req.query["hub.mode"], token = req.query["hub.verify_token"], challenge = req.query["hub.challenge"];
@@ -84,16 +227,61 @@ app.get("/api/webhook/whatsapp", (req, res) => {
   else res.sendStatus(403);
 });
 
-app.post("/api/webhook/whatsapp", async (req, res) => {
+app.post("/api/webhook/whatsapp", async (req: any, res) => {
+  // Verify Meta webhook signature (x-hub-signature-256) if WHATSAPP_APP_SECRET is configured
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  if (appSecret && req.rawBody) {
+    const sigHeader = req.headers["x-hub-signature-256"] as string | undefined;
+    if (!sigHeader || !sigHeader.startsWith("sha256=")) {
+      console.warn("[WA SIGNATURE] Missing or malformed x-hub-signature-256 header");
+      return res.status(401).json({ error: "Missing signature" });
+    }
+    const expectedSig = sigHeader.slice("sha256=".length);
+    const computedSig = crypto.createHmac("sha256", appSecret).update(req.rawBody).digest("hex");
+    
+    const expectedBuf = Buffer.from(expectedSig, "hex");
+    const computedBuf = Buffer.from(computedSig, "hex");
+    if (expectedBuf.length !== computedBuf.length || !crypto.timingSafeEqual(expectedBuf, computedBuf)) {
+      console.warn("[WA SIGNATURE] Signature verification failed");
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+  }
+
   const body = req.body;
-  let messageText = "", sender = "";
+  let messageText = "", sender = "", messageId = "";
+  let buttonId = "";
   if (body.object === "whatsapp_business_account") {
     const msg = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    if (msg?.type === "text") { messageText = msg.text.body; sender = msg.from; }
-  } else if (body.text) { messageText = body.text; sender = body.from || "919999999999"; }
+    if (msg?.type === "text") { 
+      messageText = msg.text.body; 
+      sender = msg.from; 
+      messageId = msg.id;
+    } else if (msg?.type === "interactive") {
+      sender = msg.from;
+      messageId = msg.id;
+      if (msg.interactive?.type === "button_reply") {
+        buttonId = msg.interactive.button_reply?.id || "";
+        messageText = msg.interactive.button_reply?.title || "";
+      }
+    }
+  } else if (body.text) { 
+    messageText = body.text; 
+    sender = body.from || "919999999999"; 
+    messageId = body.id || body.messageId || "";
+    buttonId = body.buttonId || "";
+  }
 
   if (!messageText || !sender) return res.sendStatus(200);
-  console.log(`[WA RECV] ${sender}: ${messageText}`);
+  
+  if (messageId) {
+    const receipt = await checkAndRegisterMessageId(messageId);
+    if (receipt.duplicate) {
+      console.log(`[DEDUPLICATE] Duplicate webhook received for message ID: ${messageId}. Skipping processing.`);
+      return res.sendStatus(200);
+    }
+  }
+  
+  console.log(`[WA RECV] ${sender}: ${messageText} (ID: ${messageId || "none"})`);
 
   const profile = await getUser(sender);
   if (!profile) {
@@ -112,6 +300,20 @@ app.post("/api/webhook/whatsapp", async (req, res) => {
       await clearOnboardingState(sender);
       await sendWhatsAppMessage(sender, getReply(language!).welcomeUser(messageText, shopName!));
     }
+    return res.sendStatus(200);
+  }
+
+  // Check billing access
+  const access = await checkAccess(sender, profile);
+  if (!access.allowed) {
+    const userLang = (profile.language as Lang) || "english";
+    const reply = getReply(userLang);
+    
+    // Construct dynamic UPI payment deep-link URL and generate a QR Code image url
+    const upiUrl = `upi://pay?pa=${MERCHANT_UPI_ID}&pn=KiranaAI&am=99&cu=INR&tn=Activate%20${sender}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiUrl)}`;
+    
+    await sendWhatsAppImage(sender, qrCodeUrl, reply.trialExpired);
     return res.sendStatus(200);
   }
 
@@ -157,7 +359,25 @@ app.post("/api/webhook/whatsapp", async (req, res) => {
   try {
     for (const line of lines) {
       const parsed = await parseMessage(line);
-      console.log("[PARSE]", line, "->", parsed.action);
+      console.log("[PARSE]", line, "->", parsed.action, `(${parsed.parsedBy})`);
+      
+      // Override parsed action if an interactive button tap was captured
+      if (buttonId) {
+        if (buttonId === "menu_inventory") {
+          parsed.action = "VIEW_STOCK";
+        } else if (buttonId === "menu_report") {
+          parsed.action = "report";
+        } else if (buttonId === "menu_low_stock") {
+          parsed.action = "low_stock";
+        }
+      }
+      
+      try {
+        await logParserMetric(sender, line, parsed.parsedBy, parsed.action);
+      } catch (err: any) {
+        console.error("[METRIC ERROR] Failed to log parsing metric:", err.message);
+      }
+
       if (parsed.action === "skip") {
         const lower = line.toLowerCase();
         if (lower.includes("sold")) contextAction = "sold";
@@ -175,8 +395,13 @@ app.post("/api/webhook/whatsapp", async (req, res) => {
       }
 
       if (effectiveAction === "greeting") {
-        results.push(reply.greeting(ownerName));
-        isAnyAction = true;
+        const buttons = [
+          { id: "menu_inventory", title: "📦 View Stock" },
+          { id: "menu_report", title: "💰 Today's Report" },
+          { id: "menu_low_stock", title: "⚠️ Low Stock" }
+        ];
+        await sendWhatsAppInteractiveButtons(sender, reply.greeting(ownerName), buttons);
+        continue;
       } 
       else if (effectiveAction === "set_price") {
         await setItemPrice(sender, parsed.item, parsed.price);
@@ -311,11 +536,14 @@ app.post("/api/webhook/whatsapp", async (req, res) => {
   }
 
   if (isAnyAction && results.length > 0) {
-    const meaningfulActions = results.filter(r => !r.includes("Hey") && !r.includes("Baagundi") && !r.includes("Kya haal"));
-    if (meaningfulActions.length >= 2) {
-      await sendWhatsAppMessage(sender, reply.bulkDone + "\n\n" + results.join("\n"));
+    const replyText = results.join("\n");
+    const isTransaction = results.some(r => r.includes("✅") || r.includes("Stock updated"));
+    const isReportOrInventory = results.some(r => r.includes("report") || r.includes("inventory") || r.includes("nilava") || r.includes("Stock") || r.includes("Mottam"));
+    
+    if (isTransaction && !isReportOrInventory) {
+      await sendWhatsAppMessageWithQuickActions(sender, replyText);
     } else {
-      await sendWhatsAppMessage(sender, results.join("\n"));
+      await sendWhatsAppMessage(sender, replyText);
     }
   }
 
@@ -330,4 +558,12 @@ app.post("/api/webhook/whatsapp", async (req, res) => {
   res.status(200).json({ success: true });
 });
 
+app.use((err: any, req: any, res: any, next: any) => {
+  if (err instanceof SyntaxError && "status" in err && err.message.includes("JSON")) {
+    return res.status(400).json({ error: "Invalid JSON payload" });
+  }
+  next(err);
+});
+
 app.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT}`));
+

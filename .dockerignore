@@ -1,9 +1,9 @@
-node_modules
-.env
-firebase-applet-config.json
-npm-debug.log
 .git
+node_modules
+scratch
+tests
+.agents
+.env
+*.log
 .gitignore
 README.md
-Dockerfile
-.dockerignore

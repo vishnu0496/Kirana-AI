@@ -11,7 +11,7 @@ KiranaAI is a smart inventory management assistant designed for small shop owner
 KiranaAI leverages state-of-the-art AI to simplify complex inventory tasks:
 
 1.  **WhatsApp Interface**: Shopkeepers send a message like "10 sabun aaya" (Hindi) or "5 biscuit becha" (Telugu).
-2.  **Gemini AI Processing**: The message is processed by Google's **Gemini 3 Flash** model, which:
+2.  **Gemini AI Processing**: The message is processed by Google's **Gemini 2.0 Flash** model, which:
     *   Detects the language (English, Hindi, Telugu).
     *   Identifies the intent (ADD, SELL, or QUERY).
     *   Extracts item names and quantities (even handling spelling mistakes).
@@ -30,7 +30,7 @@ KiranaAI leverages state-of-the-art AI to simplify complex inventory tasks:
 ## 🛠️ Tech Stack
 
 *   **Runtime**: Node.js (TypeScript)
-*   **AI**: Google Gemini 3 Flash (via `@google/genai`)
+*   **AI**: Google Gemini 2.0 Flash (via `@google/generative-ai`)
 *   **Database**: Firebase Firestore
 *   **Messaging**: WhatsApp Cloud API (Meta)
 *   **Server**: Express.js

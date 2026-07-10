@@ -1,22 +1,14 @@
-# Use the official Node.js 20 image as the base
 FROM node:20-slim
 
-# Create and change to the app directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy application dependency manifests to the container image.
-# A wildcard is used to ensure both package.json and package-lock.json are copied.
 COPY package*.json ./
+RUN npm ci --omit=dev
 
-# Install dependencies.
-# We include devDependencies because tsx and typescript are needed to run the app.
-RUN npm install
-
-# Copy local code to the container image.
 COPY . .
 
-# Expose the port the app runs on
+# Cloud Run sets PORT env var automatically
+ENV PORT=8080
 EXPOSE 8080
 
-# Run the web service on container startup.
-CMD [ "npm", "start" ]
+CMD ["npx", "tsx", "server.ts"]

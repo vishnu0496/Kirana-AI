@@ -1,0 +1,106 @@
+diff --git a/server.ts b/server.ts
+--- a/server.ts
++++ b/server.ts
+@@ -1,15 +1,17 @@
+ import express from "express";
+ import bodyParser from "body-parser";
+ import axios from "axios";
+ import { GoogleGenerativeAI } from "@google/generative-ai";
+ import admin from "firebase-admin";
+ import dotenv from "dotenv";
++import crypto from "crypto";
+ 
+ import { smartParse, detectLanguage, cleanItemName, capitalize, addVerbs, soldVerbs, priceWords } from "./src/parser";
+ import { replyTemplates, getReply, Lang, MERCHANT_UPI_ID } from "./src/templates";
+ import { 
+   getUser, saveUser, updateStock, getInventory, 
+   logTransaction, getTodayTransactions,
+   getOnboardingState, setOnboardingState, clearOnboardingState,
+   setItemPrice, getItemPrice, getPriceQueue, addToPriceQueue, shiftPriceQueue,
+-  logParserMetric, checkAndRegisterMessageId
++  logParserMetric, checkAndRegisterMessageId, setBillingStatus
+ } from "./src/database";
+ import { checkAccess } from "./src/billing";
+ 
+@@ -40,11 +42,76 @@
+ const genAI = new GoogleGenerativeAI(GEMINI_KEY || "");
+ const app = express();
+-app.use(bodyParser.json());
++
++// Razorpay webhook endpoint requires raw request body for signature verification.
++// Registered BEFORE the global app.use(bodyParser.json()) to capture raw request payload.
++app.post("/api/webhook/razorpay", express.raw({ type: "application/json" }), async (req, res) => {
++  const signature = req.headers["x-razorpay-signature"] as string;
++  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
++
++  if (!secret) {
++    console.error("[RAZORPAY WEBHOOK ERROR] RAZORPAY_WEBHOOK_SECRET is not configured.");
++    return res.status(500).json({ error: "Webhook secret not configured" });
++  }
++
++  if (!signature) {
++    console.warn("[RAZORPAY WEBHOOK ERROR] Missing x-razorpay-signature header");
++    return res.status(400).json({ error: "Missing signature header" });
++  }
++
++  const rawBody = req.body;
++  if (!rawBody || rawBody.length === 0) {
++    return res.status(400).json({ error: "Empty request body" });
++  }
++
++  // Compute HMAC SHA256 of the raw body
++  const computedSignature = crypto
++    .createHmac("sha256", secret)
++    .update(rawBody)
++    .digest("hex");
++
++  // Timing-safe verification
++  const computedBuffer = Buffer.from(computedSignature, "hex");
++  const expectedBuffer = Buffer.from(signature, "hex");
++
++  if (computedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(computedBuffer, expectedBuffer)) {
++    console.warn("[RAZORPAY WEBHOOK ERROR] Signature verification failed");
++    return res.status(400).json({ error: "Signature verification failed" });
++  }
++
++  try {
++    const payload = JSON.parse(rawBody.toString("utf8"));
++
++    // Acknowledge but ignore any events other than payment.captured
++    if (payload.event !== "payment.captured") {
++      console.log(`[RAZORPAY WEBHOOK] Event ignored: ${payload.event}`);
++      return res.status(200).json({ status: "ignored", event: payload.event });
++    }
++
++    const payment = payload.payload?.payment?.entity;
++    if (!payment) {
++      return res.status(400).json({ error: "Malformed payload: missing payment entity" });
++    }
++
++    const rawPhone = payment.notes?.phone || payment.contact;
++    if (!rawPhone) {
++      return res.status(400).json({ error: "No phone number found in payment notes or contact" });
++    }
++
++    // Normalize phone number (strip non-digits, prefix 91 if 10-digit Indian number)
++    const phone = rawPhone.replace(/\D/g, "");
++    const normalizedPhone = phone.length === 10 ? "91" + phone : phone;
++
++    // Verify if shop profile exists in Firestore
++    const shopProfile = await getUser(normalizedPhone);
++    if (!shopProfile) {
++      console.warn(`[RAZORPAY WEBHOOK ERROR] Shop not found for phone: ${normalizedPhone}`);
++      return res.status(404).json({ error: "Shop profile not found" });
++    }
++
++    // Activate billing
++    await setBillingStatus(normalizedPhone, "active");
++    console.log(`[RAZORPAY WEBHOOK SUCCESS] Activated billing for shop: ${normalizedPhone}`);
++    return res.status(200).json({ success: true });
++  } catch (err: any) {
++    console.error("[RAZORPAY WEBHOOK ERROR] Failed to process webhook:", err.message);
++    return res.status(400).json({ error: "Invalid JSON or processing error" });
++  }
++});
++
++app.use(bodyParser.json());

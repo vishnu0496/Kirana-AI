@@ -200,6 +200,79 @@ async function getTodayTransactions(phone: string) {
     });
 }
 
+async function getBilling(phone: string): Promise<{ status: "trial" | "active" | "expired"; trialStartedAt: admin.firestore.Timestamp; activatedAt?: admin.firestore.Timestamp }> {
+  const profileRef = db.collection("shops").doc(phone).collection("profile").doc("info");
+  const doc = await profileRef.get();
+  
+  if (doc.exists) {
+    const data = doc.data();
+    if (data && data.billing) {
+      if (data.billing.status === "trial" && !data.billing.trialStartedAt) {
+        const now = admin.firestore.Timestamp.now();
+        data.billing.trialStartedAt = now;
+        await profileRef.set({ billing: data.billing }, { merge: true });
+      }
+      return data.billing;
+    }
+  }
+
+  const now = admin.firestore.Timestamp.now();
+  const defaultBilling = {
+    status: "trial" as const,
+    trialStartedAt: now
+  };
+  
+  await profileRef.set({ billing: defaultBilling }, { merge: true });
+  return defaultBilling;
+}
+
+async function setBillingStatus(phone: string, status: "trial" | "active" | "expired") {
+  const billing = await getBilling(phone);
+  const profileRef = db.collection("shops").doc(phone).collection("profile").doc("info");
+  
+  const updatedBilling: any = {
+    ...billing,
+    status
+  };
+  
+  if (status === "active") {
+    updatedBilling.activatedAt = admin.firestore.Timestamp.now();
+  }
+  
+  await profileRef.set({ billing: updatedBilling }, { merge: true });
+}
+
+async function logParserMetric(phone: string, message: string, parsedBy: "regex" | "gemini" | "unknown", action: string): Promise<void> {
+  const metricsRef = db.collection("parser_metrics");
+  await metricsRef.add({
+    phone,
+    message,
+    parsedBy,
+    action,
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+async function checkAndRegisterMessageId(messageId: string): Promise<{ duplicate: boolean }> {
+  if (!messageId) return { duplicate: false };
+  
+  const receiptRef = db.collection("webhook_receipts").doc(messageId);
+  
+  return await db.runTransaction(async (transaction) => {
+    const doc = await transaction.get(receiptRef);
+    if (doc.exists) {
+      return { duplicate: true };
+    }
+    
+    transaction.set(receiptRef, {
+      processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      // TTL field — use a scheduled Firestore TTL policy or manual cleanup to purge old receipts
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+    });
+    return { duplicate: false };
+  });
+}
+
 export { 
   db, 
   getUser, 
@@ -215,8 +288,14 @@ export {
   shiftPriceQueue,
   getInventory, 
   logTransaction, 
-  getTodayTransactions 
+  getTodayTransactions,
+  getBilling,
+  setBillingStatus,
+  logParserMetric,
+  checkAndRegisterMessageId
 };
+
+
 
 
 
