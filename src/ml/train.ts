@@ -9,8 +9,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { NaiveBayes } from "./naive-bayes";
-import { generateCorpus, Sample } from "./corpus";
+import { NaiveBayes } from "./naive-bayes.ts";
+import { generateCorpus } from "./corpus.ts";
+import type { Sample } from "./corpus.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 

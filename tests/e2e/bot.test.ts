@@ -1,6 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert";
-import { TestHarness } from "./harness";
+import { TestHarness } from "./harness.ts";
 
 const harness = new TestHarness();
 const USER = "919876543210";

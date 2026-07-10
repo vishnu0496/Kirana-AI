@@ -112,7 +112,7 @@ export class TestHarness {
       ...extraEnv,
     };
 
-    this.serverProcess = spawn(process.execPath, ["--import", "tsx", "server.ts"], { env });
+    this.serverProcess = spawn(process.execPath, ["server.ts"], { env });
     this.serverProcess.stdout?.on("data", (d) => process.stdout.write(`[SERVER] ${d}`));
     this.serverProcess.stderr?.on("data", (d) => process.stderr.write(`[SERVER-ERR] ${d}`));
 

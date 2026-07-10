@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { classifyIntent, classifyLanguage } from "../../src/ml/index";
-import { smartParse, detectLanguage, replaceNumberWords } from "../../src/parser";
-import { extractFeatures, phoneticNormalize } from "../../src/ml/features";
+import { classifyIntent, classifyLanguage } from "../../src/ml/index.ts";
+import { smartParse, detectLanguage, replaceNumberWords } from "../../src/parser.ts";
+import { extractFeatures, phoneticNormalize } from "../../src/ml/features.ts";
 
 // Every phrase here is deliberately absent from the keyword lists AND from
 // the training templates — this is the generalization the word lists could

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { smartParse, detectLanguage, cleanItemName, findFuzzyMatch } from "../../src/parser";
+import { smartParse, detectLanguage, cleanItemName, findFuzzyMatch } from "../../src/parser.ts";
 
 test("greetings", () => {
   for (const msg of ["hi", "Hello", "namaste", "namaskaram", "good morning"]) {

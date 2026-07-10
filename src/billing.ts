@@ -1,5 +1,5 @@
-import { config } from "./env";
-import type { Shop } from "./store";
+import { config } from "./env.ts";
+import type { Shop } from "./store.ts";
 
 export interface AccessResult {
   allowed: boolean;

@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "lib": ["ES2022"],
     "types": ["node"],
     "strict": true,
@@ -12,7 +12,9 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
     "noEmit": true
   },
-  "include": ["server.ts", "src/**/*.ts", "tests/**/*.ts"]
+  "include": ["server.ts", "chat.ts", "src/**/*.ts", "tests/**/*.ts"]
 }

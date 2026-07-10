@@ -1,4 +1,4 @@
-import { extractFeatures } from "./features";
+import { extractFeatures } from "./features.ts";
 
 // Multinomial Naive Bayes over sparse text features.
 //

@@ -1,25 +1,22 @@
 {
   "name": "kirana-ai",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=22.18"
   },
   "scripts": {
-    "dev": "tsx watch server.ts",
-    "start": "tsx server.ts",
+    "dev": "node --watch server.ts",
+    "start": "node server.ts",
+    "chat": "node chat.ts",
     "lint": "tsc --noEmit",
-    "train": "tsx src/ml/train.ts",
-    "test": "node --import tsx --test tests/unit/parser.test.ts tests/unit/ml.test.ts tests/e2e/bot.test.ts"
+    "train": "node src/ml/train.ts",
+    "test": "node --test tests/unit/parser.test.ts tests/unit/ml.test.ts tests/e2e/bot.test.ts"
   },
-  "dependencies": {
-    "express": "^4.21.2",
-    "tsx": "^4.21.0",
-    "typescript": "~5.8.2"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/node": "^22.14.0"
+    "@types/node": "^22.14.0",
+    "typescript": "~5.8.2"
   }
 }

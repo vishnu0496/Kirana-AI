@@ -1,9 +1,12 @@
-import { config } from "./env";
-import { smartParse, detectLanguage, capitalize, explicitAction, ParseResult } from "./parser";
-import { getReply, Lang } from "./templates";
-import { checkAccess } from "./billing";
-import { sendText, sendButtons, Button } from "./whatsapp";
-import * as store from "./store";
+import { config } from "./env.ts";
+import { smartParse, detectLanguage, capitalize, explicitAction } from "./parser.ts";
+import type { ParseResult } from "./parser.ts";
+import { getReply } from "./templates.ts";
+import type { Lang } from "./templates.ts";
+import { checkAccess } from "./billing.ts";
+import { sendText, sendButtons } from "./whatsapp.ts";
+import type { Button } from "./whatsapp.ts";
+import * as store from "./store.ts";
 
 const MENU_BUTTONS: Button[] = [
   { id: "menu_inventory", title: "📦 View Stock" },

@@ -2,7 +2,7 @@
 
 KiranaAI is an inventory management assistant for small shop owners (kirana shops) in India. Shopkeepers manage stock by sending plain WhatsApp messages in **English, Hindi, or Telugu** (transliterated).
 
-**Zero external dependencies except WhatsApp.** No AI API, no cloud database, no payment gateway — everything runs locally on your server. The only outbound calls are to the WhatsApp Cloud API to send replies.
+**Zero dependencies except WhatsApp.** No AI API, no cloud database, no payment gateway — and **zero npm runtime dependencies**: the server is built on `node:http` and runs as plain TypeScript on Node 22.18+ (native type stripping). The only outbound calls are to the WhatsApp Cloud API to send replies. There is even an [offline chat mode](#-try-it-without-whatsapp) that needs no WhatsApp at all.
 
 <div align="center">
   <img src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" alt="KiranaAI Banner" width="100%">
@@ -28,18 +28,40 @@ KiranaAI is an inventory management assistant for small shop owners (kirana shop
 
 ## 🛠️ Tech Stack
 
-* **Runtime**: Node.js 18+ (TypeScript, strict mode, run with `tsx`)
-* **Server**: Express.js
+* **Runtime**: Node.js 22.18+ — TypeScript runs natively (type stripping), strict mode
+* **Server**: `node:http` (no framework)
+* **ML**: hand-rolled Naive Bayes over char n-grams, trained locally (`src/ml/`)
 * **Storage**: local JSON file with atomic debounced writes (`data/store.json`)
 * **Messaging**: WhatsApp Cloud API (Meta) via built-in `fetch`
 
-Total production dependencies: `express`, `tsx`, `typescript`. That's it.
+**Runtime npm dependencies: none.** (`typescript` and `@types/node` are dev-only, for `npm run lint`.)
 
-## 📦 Setup
+## 💬 Try it without WhatsApp
+
+The bot works out of the box with no credentials, no webhook, no tunnel, no internet:
+
+```bash
+git clone https://github.com/vishnu0496/Kirana-AI.git
+cd Kirana-AI
+npm run chat
+```
+
+```
+You: hi
+🤖 Welcome to Kirana AI! 👋  What is your shop name?
+You: das sabun aaya
+🤖 ✅ 10 Sabun add ho gaya! 📦 Total stock: 10
+You: aaj ki kamai batao
+🤖 Vishnu bhai, aaj ki report: … 💰 Kul kamai: ₹60
+```
+
+Same brain (parser + ML + store) as the WhatsApp server — outbound messages are printed to the terminal instead.
+
+## 📦 Setup (WhatsApp)
 
 ### Prerequisites
 
-* Node.js v18+ (v22 recommended)
+* Node.js v22.18+ (v24 recommended)
 * A Meta Developer account with WhatsApp Cloud API configured
 
 ### Installation
@@ -47,10 +69,11 @@ Total production dependencies: `express`, `tsx`, `typescript`. That's it.
 ```bash
 git clone https://github.com/vishnu0496/Kirana-AI.git
 cd Kirana-AI
-npm install
 cp .env.example .env   # fill in your WhatsApp credentials
-npm run dev
+npm run dev            # or just: node server.ts
 ```
+
+(No `npm install` needed to run — only for the dev tooling: `npm install` then `npm run lint` / `npm test`.)
 
 Point your WhatsApp webhook to `https://your-server-url/api/webhook/whatsapp` using the `WHATSAPP_VERIFY_TOKEN` you chose. Set `WHATSAPP_APP_SECRET` so incoming webhooks are signature-verified.
 

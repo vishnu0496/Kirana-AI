@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { config } from "./env";
-import { findFuzzyMatch } from "./parser";
-import type { Lang } from "./templates";
+import { config } from "./env.ts";
+import { findFuzzyMatch } from "./parser.ts";
+import type { Lang } from "./templates.ts";
 
 // ── Types ──────────────────────────────────────────────────
 

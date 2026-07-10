@@ -1,10 +1,8 @@
-FROM node:22-slim
+FROM node:24-slim
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --omit=dev
-
+# Zero runtime dependencies — no npm install needed at all.
 COPY . .
 
 # Local JSON store lives here — mount a volume to persist it.
@@ -14,4 +12,4 @@ VOLUME /app/data
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["npx", "tsx", "server.ts"]
+CMD ["node", "server.ts"]

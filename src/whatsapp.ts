@@ -1,4 +1,4 @@
-import { config } from "./env";
+import { config } from "./env.ts";
 
 // WhatsApp Cloud API client — the only external service this app calls.
 // Uses the built-in fetch (Node 18+), no HTTP library needed.
@@ -10,7 +10,20 @@ export interface Button {
   title: string; // max 20 chars per WhatsApp API
 }
 
+// Optional outbound override: lets the CLI chat mode (and anything else)
+// intercept messages instead of calling the WhatsApp Cloud API.
+export type OutboundHandler = (payload: Record<string, unknown>) => void | Promise<void>;
+let outboundOverride: OutboundHandler | null = null;
+
+export function setOutboundOverride(handler: OutboundHandler | null): void {
+  outboundOverride = handler;
+}
+
 async function post(payload: Record<string, unknown>, attempt = 1): Promise<boolean> {
+  if (outboundOverride) {
+    await outboundOverride(payload);
+    return false; // suppress the "[WA] Sent" logs; the override owns output
+  }
   if (!config.whatsappToken || !config.whatsappPhoneId) {
     console.warn("[WA] WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID not set — skipping send");
     return false;

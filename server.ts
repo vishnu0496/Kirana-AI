@@ -1,48 +1,45 @@
-import express from "express";
+// KiranaAI server — zero runtime dependencies: built on node:http, runs as
+// plain TypeScript on Node 22.18+ (native type stripping). The only outbound
+// traffic is to the WhatsApp Cloud API.
+
+import http from "node:http";
 import crypto from "node:crypto";
-import { config } from "./src/env";
-import { handleIncomingMessage } from "./src/bot";
-import { checkAndRegisterMessageId, flush } from "./src/store";
+import { config } from "./src/env.ts";
+import { handleIncomingMessage } from "./src/bot.ts";
+import { checkAndRegisterMessageId, flush } from "./src/store.ts";
 
-const app = express();
+const MAX_BODY_BYTES = 1024 * 1024;
 
-app.use(
-  express.json({
-    verify: (req, _res, buf) => {
-      (req as WebhookRequest).rawBody = buf;
-    },
-  })
-);
-
-interface WebhookRequest extends express.Request {
-  rawBody?: Buffer;
+function sendJson(res: http.ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(body));
 }
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", uptime: process.uptime() });
-});
+function readBody(req: http.IncomingMessage): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        reject(new Error("payload too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
 
-// Meta webhook verification handshake
-app.get("/api/webhook/whatsapp", (req, res) => {
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
-  if (mode === "subscribe" && token === config.whatsappVerifyToken) {
-    res.status(200).send(challenge);
-  } else {
-    res.sendStatus(403);
-  }
-});
-
-function verifySignature(req: WebhookRequest): boolean {
+function verifySignature(rawBody: Buffer, sigHeader: string | string[] | undefined): boolean {
   if (!config.whatsappAppSecret) return true; // verification disabled (dev/test)
-  if (!req.rawBody) return false;
-  const sigHeader = req.headers["x-hub-signature-256"];
   if (typeof sigHeader !== "string" || !sigHeader.startsWith("sha256=")) return false;
   const expected = Buffer.from(sigHeader.slice("sha256=".length), "hex");
   const computed = crypto
     .createHmac("sha256", config.whatsappAppSecret)
-    .update(req.rawBody)
+    .update(rawBody)
     .digest();
   return expected.length === computed.length && crypto.timingSafeEqual(expected, computed);
 }
@@ -82,18 +79,38 @@ function extractMessage(body: any): IncomingMessage | null {
   return null;
 }
 
-app.post("/api/webhook/whatsapp", async (req: WebhookRequest, res) => {
-  if (!verifySignature(req)) {
-    console.warn("[WA SIGNATURE] Signature verification failed");
-    return res.status(401).json({ error: "Invalid signature" });
+async function handleWebhookPost(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  let rawBody: Buffer;
+  try {
+    rawBody = await readBody(req);
+  } catch {
+    return sendJson(res, 413, { error: "Payload too large" });
   }
 
-  const incoming = extractMessage(req.body);
-  if (!incoming || !incoming.text || !incoming.sender) return res.sendStatus(200);
+  if (!verifySignature(rawBody, req.headers["x-hub-signature-256"])) {
+    console.warn("[WA SIGNATURE] Signature verification failed");
+    return sendJson(res, 401, { error: "Invalid signature" });
+  }
+
+  let body: unknown;
+  try {
+    body = JSON.parse(rawBody.toString("utf-8"));
+  } catch {
+    return sendJson(res, 400, { error: "Invalid JSON payload" });
+  }
+
+  const incoming = extractMessage(body);
+  if (!incoming || !incoming.text || !incoming.sender) {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
 
   if (incoming.messageId && checkAndRegisterMessageId(incoming.messageId).duplicate) {
     console.log(`[DEDUPE] Duplicate message ${incoming.messageId}, skipping`);
-    return res.sendStatus(200);
+    res.writeHead(200);
+    res.end();
+    return;
   }
 
   console.log(`[WA RECV] ${incoming.sender}: ${incoming.text} (ID: ${incoming.messageId || "none"})`);
@@ -103,22 +120,46 @@ app.post("/api/webhook/whatsapp", async (req: WebhookRequest, res) => {
   } catch (err) {
     console.error("[HANDLER ERROR]", err instanceof Error ? err.stack : err);
   }
-  res.status(200).json({ success: true });
-});
+  sendJson(res, 200, { success: true });
+}
 
-// Malformed JSON should be a 400, not a crash.
-app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (err instanceof SyntaxError && "status" in err) {
-    return res.status(400).json({ error: "Invalid JSON payload" });
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url ?? "/", "http://localhost");
+  try {
+    if (req.method === "GET" && url.pathname === "/health") {
+      return sendJson(res, 200, { status: "ok", uptime: process.uptime() });
+    }
+
+    // Meta webhook verification handshake
+    if (req.method === "GET" && url.pathname === "/api/webhook/whatsapp") {
+      const mode = url.searchParams.get("hub.mode");
+      const token = url.searchParams.get("hub.verify_token");
+      const challenge = url.searchParams.get("hub.challenge");
+      if (mode === "subscribe" && token === config.whatsappVerifyToken) {
+        res.writeHead(200, { "Content-Type": "text/plain" });
+        return res.end(challenge ?? "");
+      }
+      res.writeHead(403);
+      return res.end();
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/webhook/whatsapp") {
+      return await handleWebhookPost(req, res);
+    }
+
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Not found" }));
+  } catch (err) {
+    console.error("[SERVER ERROR]", err instanceof Error ? err.stack : err);
+    if (!res.headersSent) sendJson(res, 500, { error: "Internal error" });
   }
-  next(err);
 });
 
-const server = app.listen(config.port, "0.0.0.0", () => {
+server.listen(config.port, "0.0.0.0", () => {
   console.log(`Kirana AI server running on port ${config.port}`);
 });
 
-function shutdown(signal: string) {
+function shutdown(signal: string): void {
   console.log(`[SERVER] ${signal} received, shutting down`);
   try {
     flush();

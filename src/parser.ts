@@ -10,7 +10,7 @@
 // Every confident rule hit is fed back to the classifier (online learning),
 // so the model keeps adapting to each shop's phrasing.
 
-import { classifyIntent, classifyLanguage, learnIntent } from "./ml";
+import { classifyIntent, classifyLanguage, learnIntent } from "./ml/index.ts";
 
 // Below this confidence the classifier's opinion is ignored.
 const ML_CONFIDENCE = 0.7;

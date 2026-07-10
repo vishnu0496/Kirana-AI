@@ -5,8 +5,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { NaiveBayes, Prediction } from "./naive-bayes";
-import { config } from "../env";
+import { NaiveBayes } from "./naive-bayes.ts";
+import type { Prediction } from "./naive-bayes.ts";
+import { config } from "../env.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const MODEL_PATH = path.join(here, "model.json");
