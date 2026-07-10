@@ -11,14 +11,15 @@ KiranaAI is an inventory management assistant for small shop owners (kirana shop
 ## ✨ How It Works
 
 1. **WhatsApp message in**: "10 sabun aaya" (Hindi) or "5 biscuit ammamu" (Telugu) or "add 10 soaps".
-2. **Rule-based parser**: a fast multilingual intent engine detects the language, the intent (add / sell / query / price), quantities, units (kg, ltr, pkt, …) and item names — including fuzzy-matching spellings against your existing inventory ("santoor" → "Santoor Soap").
+2. **Hybrid language understanding**: deterministic rules extract the structured parts (quantities, units, prices, item names — with fuzzy matching, "santoor" → "Santoor Soap"), while a **locally-trained ML classifier** (char-n-gram Naive Bayes, 99% held-out accuracy) understands the unstructured parts: intent and language across the unstable romanized spellings and rich verb morphology of Telugu/Hindi ("neti/ivala/eeroju report", "amm-anu/-indi/-aru"). It also **learns online** from your own phrasing, stored locally. See [docs/NLP.md](docs/NLP.md) for the linguistics research and design.
 3. **Local JSON store**: inventory, transaction logs, and shop profiles are persisted atomically to `data/store.json` on your own machine.
 4. **Instant reply**: confirmation with updated stock totals, in the user's language, with quick-action buttons.
 
 ## 🚀 Features
 
-* **Multilingual**: understands and replies in Hindi, Telugu, and English.
-* **Natural language**: "stok dikhao", "5 chips becha", "sold: / 2 parle g" multi-line entries, bulk lines ("added 10 soap 5 chips 2 kg sugar"), decimal quantities ("2.5 kg dal").
+* **Multilingual**: understands and replies in Hindi, Telugu, and English — general phrasing, not fixed keywords ("aaj ki kamai batao", "ivala ammakalu enta", "kya khatam hone wala hai" all work).
+* **Natural language**: "stok dikhao", "5 chips becha", number words ("das sabun aaya", "rendu kg pappu"), "sold: / 2 parle g" multi-line entries, bulk lines ("added 10 soap 5 chips 2 kg sugar"), decimal quantities ("2.5 kg dal").
+* **Self-learning**: a local Naive Bayes model (no AI API) classifies intent/language and keeps learning from your own messages; retrain anytime with `npm run train`.
 * **Prices & reports**: asks for the price of new items, tracks revenue, daily sales report.
 * **Low-stock alerts**: warns when an item drops below the threshold and lists items to reorder.
 * **Interactive buttons**: View Stock / Today's Report / Low Stock menus.
@@ -78,7 +79,8 @@ docker run -p 8080:8080 --env-file .env -v kirana-data:/app/data kirana-ai
 
 ```bash
 npm run lint   # TypeScript strict typecheck
-npm test       # parser unit tests + end-to-end webhook tests (mock WhatsApp server)
+npm test       # parser + ML generalization unit tests, e2e webhook tests (mock WhatsApp server)
+npm run train  # retrain the intent/language model, prints held-out accuracy
 ```
 
 The e2e suite spawns the real server against a mock WhatsApp Cloud API and exercises onboarding, stock updates, the price queue, reports, signature rejection, and deduplication — no external services needed.
