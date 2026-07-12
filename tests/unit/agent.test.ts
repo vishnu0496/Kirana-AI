@@ -51,3 +51,30 @@ test("isWarmedUp reflects how much history exists", () => {
   // Ten days after that first log → warmed up.
   assert.strictEqual(agent.isWarmedUp(phone, new Date(Date.now() + 10 * DAY)), true);
 });
+
+test("deadStock flags stale, unsold stock ranked by capital tied up", () => {
+  const phone = "919000001005";
+  store.saveUser(phone, { shopName: "S", ownerName: "A", language: "english" });
+  store.updateStock(phone, "candles", 10, "ADD");
+  store.setItemPrice(phone, "candles", 5); // ₹50 tied up
+  store.logTransaction(phone, "ADD", "candles", 10, "", 5);
+  store.updateStock(phone, "incense", 4, "ADD");
+  store.setItemPrice(phone, "incense", 30); // ₹120 tied up
+  store.logTransaction(phone, "ADD", "incense", 4, "", 30);
+
+  // 30 days later, neither has sold → both dead, ranked by capital.
+  const dead = agent.deadStock(phone, new Date(Date.now() + 30 * DAY));
+  assert.strictEqual(dead.length, 2);
+  assert.strictEqual(dead[0].item, "incense"); // ₹120 first
+  assert.strictEqual(dead[0].capital, 120);
+  assert.strictEqual(dead[1].capital, 50);
+  assert.ok(dead[0].daysSinceSale >= 29);
+});
+
+test("deadStock does not flag freshly-added items (too new to judge)", () => {
+  const phone = "919000001006";
+  store.saveUser(phone, { shopName: "S", ownerName: "A", language: "english" });
+  store.updateStock(phone, "milk", 5, "ADD");
+  store.logTransaction(phone, "ADD", "milk", 5, "", 10);
+  assert.strictEqual(agent.deadStock(phone, new Date()).length, 0);
+});

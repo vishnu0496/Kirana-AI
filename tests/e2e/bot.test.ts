@@ -157,6 +157,16 @@ test("order list recommends reordering a fast-mover about to run out", async () 
   assert.match(reply, /order ~/);
 });
 
+test("dead stock command replies cleanly when nothing is stale", async () => {
+  const U = "919876543235";
+  harness.mock.clear();
+  await harness.sendUserMessage(U, "hello");
+  await harness.sendUserMessage(U, "Fresh Shop");
+  await harness.sendUserMessage(U, "Sita");
+  const [reply] = await harness.sendUserMessage(U, "dead stock");
+  assert.match(reply, /No dead stock/i);
+});
+
 test("selling an unknown item does not create it", async () => {
   harness.mock.clear();
   const [replyText] = await harness.sendUserMessage(USER, "sold 5 unicorn dust");

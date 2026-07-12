@@ -73,3 +73,46 @@ export function reorderSuggestions(sender: string, now: Date = new Date()): Reor
   }
   return out.sort((a, b) => a.daysCover - b.daysCover);
 }
+
+export interface DeadStockItem {
+  item: string;
+  unit: string;
+  qty: number;
+  daysSinceSale: number;
+  capital: number; // ₹ tied up (qty × price), 0 if price unknown
+}
+
+/**
+ * Stock that's gone stale: in stock but no sale in `agentDeadStockDays`, and old
+ * enough to judge (been in the shop that long). Ranked by capital tied up.
+ */
+export function deadStock(sender: string, now: Date = new Date()): DeadStockItem[] {
+  const lastSell: Record<string, number> = {};
+  const firstSeen: Record<string, number> = {};
+  for (const t of store.getLogs(sender)) {
+    const key = normKey(t.item);
+    const ts = new Date(t.timestamp).getTime();
+    firstSeen[key] = Math.min(firstSeen[key] ?? Infinity, ts);
+    if (t.action === "SELL") lastSell[key] = Math.max(lastSell[key] ?? -Infinity, ts);
+  }
+
+  const deadMs = config.agentDeadStockDays * DAY_MS;
+  const out: DeadStockItem[] = [];
+  for (const item of store.getInventory(sender)) {
+    if (item.quantity <= 0) continue;
+    const key = normKey(item.name);
+    const seen = firstSeen[key];
+    if (seen === undefined || now.getTime() - seen < deadMs) continue; // too new to judge
+    const ls = lastSell[key];
+    const sinceMs = ls === undefined ? now.getTime() - seen : now.getTime() - ls;
+    if (sinceMs < deadMs) continue;
+    out.push({
+      item: item.name,
+      unit: item.unit,
+      qty: item.quantity,
+      daysSinceSale: Math.floor(sinceMs / DAY_MS),
+      capital: item.quantity * (item.price ?? 0),
+    });
+  }
+  return out.sort((a, b) => b.capital - a.capital);
+}

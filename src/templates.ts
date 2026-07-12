@@ -59,7 +59,7 @@ const replyTemplates = {
     greeting: (name: string) =>
       `Hey ${name}! 👋 How can I help?\nTry: 'add 10 soaps' or 'show inventory'`,
     help:
-      "Here's what I can do 🤖\n• add 10 soaps — add stock\n• sold 5 chips — record a sale\n• show inventory — full stock list\n• low stock — items to reorder\n• today report / week report — sales\n• sugar price 45 — set a price\n• ramesh udhaar 50 — khata credit\n• ramesh paid 30 — khata payment\n• udhaar list — who owes you\n• day summary — today's full digest\n• summary 9pm — get it daily at 9pm\n• order list — what to reorder now\n• undo — cancel last entry",
+      "Here's what I can do 🤖\n• add 10 soaps — add stock\n• sold 5 chips — record a sale\n• show inventory — full stock list\n• low stock — items to reorder\n• today report / week report — sales\n• sugar price 45 — set a price\n• ramesh udhaar 50 — khata credit\n• ramesh paid 30 — khata payment\n• udhaar list — who owes you\n• day summary — today's full digest\n• summary 9pm — get it daily at 9pm\n• order list — what to reorder now\n• dead stock — money stuck in slow items\n• undo — cancel last entry",
     notUnderstood: "Didn't understand 🙏 Try: 'add 5 chips' or 'show inventory'",
     notUnderstoodLine: (line: string) => `⚠️ Didn't understand: "${line}"`,
     trialExpired: (support: string) =>
@@ -76,6 +76,12 @@ const replyTemplates = {
     },
     reorderNone: "✅ Stock levels look healthy — nothing urgent to reorder.",
     agentLearning: "📊 Still learning your shop — a few more days of sales and I'll start predicting reorders for you.",
+    deadStockHeader: "🐌 Slow movers (money stuck here):",
+    deadStockLine: (item: string, days: number, qty: number, unit: string, capital: number) => {
+      const u = unit ? " " + unit : "";
+      return `🟡 ${item}: no sale in ${days}d, ${qty}${u} left${capital ? ` (₹${capital} stuck)` : ""} → discount or return`;
+    },
+    deadStockNone: "✅ No dead stock — your money is moving nicely.",
   },
   telugu: {
     askShopName: "Kirana AI ki swaagatam! 👋\nMee shop peru cheppandi?",
@@ -137,7 +143,7 @@ const replyTemplates = {
     greeting: (name: string) =>
       `Ela unnaru ${name} anna! 👋 Em kavali?\nTry: 'add 10 soaps' or 'show inventory'`,
     help:
-      "Nenu ivi cheyagalanu 🤖\n• add 10 soaps — stock add\n• sold 5 chips — ammakam record\n• show inventory — stock chudandi\n• low stock — order cheyalsina items\n• today report / vaaram report — ammakalu\n• sugar price 45 — price set\n• ramesh appu 50 — khata lo rayadam\n• ramesh 30 katti — appu teerchadam\n• appu list — evaru entha baaki\n• day summary — ee roju full lekka\n• summary 9pm — roju 9pm ki summary\n• order list — em order cheyalo\n• undo — last entry cancel",
+      "Nenu ivi cheyagalanu 🤖\n• add 10 soaps — stock add\n• sold 5 chips — ammakam record\n• show inventory — stock chudandi\n• low stock — order cheyalsina items\n• today report / vaaram report — ammakalu\n• sugar price 45 — price set\n• ramesh appu 50 — khata lo rayadam\n• ramesh 30 katti — appu teerchadam\n• appu list — evaru entha baaki\n• day summary — ee roju full lekka\n• summary 9pm — roju 9pm ki summary\n• order list — em order cheyalo\n• dead stock — ammudu kani items lo dabbu\n• undo — last entry cancel",
     notUnderstood: "Artham kaledu 🙏 Try: 'add 5 chips' or 'show inventory'",
     notUnderstoodLine: (line: string) => `⚠️ Idi artham kaledu: "${line}"`,
     trialExpired: (support: string) =>
@@ -154,6 +160,12 @@ const replyTemplates = {
     },
     reorderNone: "✅ Stock baaga undi — ippudu urgent ga em order cheyakkarledu.",
     agentLearning: "📊 Mee shop ni ippudu nerchukuntunna — inko konni rojula sales tarvata reorders predict cheyadam start chesta.",
+    deadStockHeader: "🐌 Ammudu kani items (dabbu ikkada irukkundi):",
+    deadStockLine: (item: string, days: number, qty: number, unit: string, capital: number) => {
+      const u = unit ? " " + unit : "";
+      return `🟡 ${item}: ${days}d nunchi ammudu ledu, ${qty}${u} unnayi${capital ? ` (₹${capital} iruku)` : ""} → discount pettandi leda return cheyandi`;
+    },
+    deadStockNone: "✅ Dead stock emi ledu — mee dabbu baaga tirugutundi.",
   },
   hindi: {
     askShopName: "Kirana AI mein swagat! 👋\nApka shop ka naam kya hai?",
@@ -215,7 +227,7 @@ const replyTemplates = {
     greeting: (name: string) =>
       `Kya haal hai ${name} bhai! 👋 Kya help chahiye?\nTry: 'add 10 soaps' ya 'show inventory'`,
     help:
-      "Main ye kar sakta hoon 🤖\n• add 10 soaps — stock add\n• sold 5 chips — sale record\n• show inventory — stock list\n• low stock — order karne wale items\n• today report / hafte ka report — bikri\n• sugar price 45 — price set\n• ramesh udhaar 50 — khata mein likho\n• ramesh ne 30 diya — udhaar wapas\n• udhaar list — kaun kitna dega\n• day summary — aaj ka pura hisab\n• summary 9pm — rozana 9pm pe summary\n• order list — kya reorder karna hai\n• undo — last entry cancel",
+      "Main ye kar sakta hoon 🤖\n• add 10 soaps — stock add\n• sold 5 chips — sale record\n• show inventory — stock list\n• low stock — order karne wale items\n• today report / hafte ka report — bikri\n• sugar price 45 — price set\n• ramesh udhaar 50 — khata mein likho\n• ramesh ne 30 diya — udhaar wapas\n• udhaar list — kaun kitna dega\n• day summary — aaj ka pura hisab\n• summary 9pm — rozana 9pm pe summary\n• order list — kya reorder karna hai\n• dead stock — slow items mein phansa paisa\n• undo — last entry cancel",
     notUnderstood: "Samajh nahi aaya 🙏 Try: 'add 5 chips' ya 'show inventory'",
     notUnderstoodLine: (line: string) => `⚠️ Samajh nahi aaya: "${line}"`,
     trialExpired: (support: string) =>
@@ -232,6 +244,12 @@ const replyTemplates = {
     },
     reorderNone: "✅ Stock theek hai — abhi urgent kuch order karne ki zaroorat nahi.",
     agentLearning: "📊 Aapki dukaan ko samajh raha hoon — kuch aur din ki sales ke baad reorders predict karna shuru kar dunga.",
+    deadStockHeader: "🐌 Slow items (paisa yahan phansa hai):",
+    deadStockLine: (item: string, days: number, qty: number, unit: string, capital: number) => {
+      const u = unit ? " " + unit : "";
+      return `🟡 ${item}: ${days}d se koi sale nahi, ${qty}${u} bacha${capital ? ` (₹${capital} phansa)` : ""} → discount karo ya return karo`;
+    },
+    deadStockNone: "✅ Koi dead stock nahi — aapka paisa achhe se ghoom raha hai.",
   },
 };
 

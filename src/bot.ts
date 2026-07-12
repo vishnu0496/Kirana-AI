@@ -144,6 +144,13 @@ export async function handleIncomingMessage(
     return;
   }
 
+  // Dead stock / slow movers — capital tied up in items that aren't selling.
+  if (!buttonId && /dead\s*stock|slow\s*(movers|items)/i.test(messageText)) {
+    const section = deadStockSection(sender, reply);
+    await sendText(sender, section.length ? section.join("\n") : reply.deadStockNone);
+    return;
+  }
+
   // Button taps map directly to an action; free text goes through the parser.
   const lines = buttonId
     ? [messageText || buttonId]
@@ -496,6 +503,17 @@ function reorderSection(sender: string, reply: Reply, now: Date = new Date()): s
   return lines;
 }
 
+/** Dead-stock lines (header + items), or [] when nothing is stale. */
+function deadStockSection(sender: string, reply: Reply, now: Date = new Date()): string[] {
+  const dead = agent.deadStock(sender, now);
+  if (dead.length === 0) return [];
+  const lines = [reply.deadStockHeader];
+  for (const d of dead) {
+    lines.push(reply.deadStockLine(capitalize(d.item), d.daysSinceSale, d.qty, d.unit, d.capital));
+  }
+  return lines;
+}
+
 /** End-of-day digest: today's sales + revenue, items to reorder, and udhaar owed. */
 function buildDailySummary(sender: string, ownerName: string, reply: Reply): string {
   const entries = aggregateSells(sender, store.getTodayTransactions(sender));
@@ -523,6 +541,9 @@ function buildDailySummary(sender: string, ownerName: string, reply: Reply): str
 
   const udhaarTotal = store.getKhata(sender).reduce((sum, k) => sum + Math.max(0, k.balance), 0);
   if (udhaarTotal > 0) lines.push("", reply.summaryUdhaarDue(udhaarTotal));
+
+  const dead = deadStockSection(sender, reply);
+  if (dead.length > 0) lines.push("", ...dead);
 
   return lines.join("\n");
 }
