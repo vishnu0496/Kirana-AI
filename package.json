@@ -12,7 +12,7 @@
     "chat": "node chat.ts",
     "lint": "tsc --noEmit",
     "train": "node src/ml/train.ts",
-    "test": "node --test tests/unit/parser.test.ts tests/unit/ml.test.ts tests/unit/bulkImport.test.ts tests/e2e/bot.test.ts tests/e2e/billing.test.ts tests/e2e/bulkImport.test.ts"
+    "test": "node --test tests/unit/parser.test.ts tests/unit/ml.test.ts tests/unit/bulkImport.test.ts tests/unit/summary.test.ts tests/e2e/bot.test.ts tests/e2e/billing.test.ts tests/e2e/bulkImport.test.ts"
   },
   "dependencies": {},
   "devDependencies": {

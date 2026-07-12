@@ -5,7 +5,7 @@
 import http from "node:http";
 import crypto from "node:crypto";
 import { config } from "./src/env.ts";
-import { handleIncomingMessage } from "./src/bot.ts";
+import { handleIncomingMessage, runDueSummaries } from "./src/bot.ts";
 import { checkAndRegisterMessageId, flush } from "./src/store.ts";
 
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -168,6 +168,12 @@ const server = http.createServer(async (req, res) => {
 server.listen(config.port, "0.0.0.0", () => {
   console.log(`Kirana AI server running on port ${config.port}`);
 });
+
+// Check once a minute whether any shop's daily-summary time has arrived.
+const summaryTimer = setInterval(() => {
+  runDueSummaries().catch((err) => console.error("[SUMMARY ERROR]", err));
+}, 60_000);
+summaryTimer.unref();
 
 function shutdown(signal: string): void {
   console.log(`[SERVER] ${signal} received, shutting down`);

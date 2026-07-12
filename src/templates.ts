@@ -59,12 +59,16 @@ const replyTemplates = {
     greeting: (name: string) =>
       `Hey ${name}! 👋 How can I help?\nTry: 'add 10 soaps' or 'show inventory'`,
     help:
-      "Here's what I can do 🤖\n• add 10 soaps — add stock\n• sold 5 chips — record a sale\n• show inventory — full stock list\n• low stock — items to reorder\n• today report / week report — sales\n• sugar price 45 — set a price\n• ramesh udhaar 50 — khata credit\n• ramesh paid 30 — khata payment\n• udhaar list — who owes you\n• undo — cancel last entry",
+      "Here's what I can do 🤖\n• add 10 soaps — add stock\n• sold 5 chips — record a sale\n• show inventory — full stock list\n• low stock — items to reorder\n• today report / week report — sales\n• sugar price 45 — set a price\n• ramesh udhaar 50 — khata credit\n• ramesh paid 30 — khata payment\n• udhaar list — who owes you\n• day summary — today's full digest\n• summary 9pm — get it daily at 9pm\n• undo — cancel last entry",
     notUnderstood: "Didn't understand 🙏 Try: 'add 5 chips' or 'show inventory'",
     notUnderstoodLine: (line: string) => `⚠️ Didn't understand: "${line}"`,
     trialExpired: (support: string) =>
       `Your trial period is over. Please contact support${support ? ` (${support})` : ""} to activate your account and continue using Kirana AI.`,
     activated: "✅ Your Kirana AI account is now active! Thanks 🙏 Send any message to continue.",
+    summaryHeader: (name: string) => `🌙 ${name}, here's your day summary:`,
+    summarySet: (time: string) => `✅ Daily summary set for ${time} — you'll get it every evening 🌙\n(Type 'day summary' anytime to see it now.)`,
+    summaryReorderHeader: "🛒 Reorder soon:",
+    summaryUdhaarDue: (total: number) => `📒 Udhaar to collect: ₹${total}`,
   },
   telugu: {
     askShopName: "Kirana AI ki swaagatam! 👋\nMee shop peru cheppandi?",
@@ -126,12 +130,16 @@ const replyTemplates = {
     greeting: (name: string) =>
       `Ela unnaru ${name} anna! 👋 Em kavali?\nTry: 'add 10 soaps' or 'show inventory'`,
     help:
-      "Nenu ivi cheyagalanu 🤖\n• add 10 soaps — stock add\n• sold 5 chips — ammakam record\n• show inventory — stock chudandi\n• low stock — order cheyalsina items\n• today report / vaaram report — ammakalu\n• sugar price 45 — price set\n• ramesh appu 50 — khata lo rayadam\n• ramesh 30 katti — appu teerchadam\n• appu list — evaru entha baaki\n• undo — last entry cancel",
+      "Nenu ivi cheyagalanu 🤖\n• add 10 soaps — stock add\n• sold 5 chips — ammakam record\n• show inventory — stock chudandi\n• low stock — order cheyalsina items\n• today report / vaaram report — ammakalu\n• sugar price 45 — price set\n• ramesh appu 50 — khata lo rayadam\n• ramesh 30 katti — appu teerchadam\n• appu list — evaru entha baaki\n• day summary — ee roju full lekka\n• summary 9pm — roju 9pm ki summary\n• undo — last entry cancel",
     notUnderstood: "Artham kaledu 🙏 Try: 'add 5 chips' or 'show inventory'",
     notUnderstoodLine: (line: string) => `⚠️ Idi artham kaledu: "${line}"`,
     trialExpired: (support: string) =>
       `Mee trial time ayipoyindi. Kirana AI malli vaadadaniki support${support ? ` (${support})` : ""} ni contact cheyandi.`,
     activated: "✅ Mee Kirana AI account ippudu active! Thanks 🙏 Continue cheyadaniki edaina message pampandi.",
+    summaryHeader: (name: string) => `🌙 ${name} anna, ee roju full lekka:`,
+    summarySet: (time: string) => `✅ Roju summary ${time} ki set chesanu — prati roju saayantram vastundi 🌙\n('day summary' ani type chesthe ippude chudocchu.)`,
+    summaryReorderHeader: "🛒 Twaraga order cheyandi:",
+    summaryUdhaarDue: (total: number) => `📒 Vasoolu cheyalsina appu: ₹${total}`,
   },
   hindi: {
     askShopName: "Kirana AI mein swagat! 👋\nApka shop ka naam kya hai?",
@@ -193,12 +201,16 @@ const replyTemplates = {
     greeting: (name: string) =>
       `Kya haal hai ${name} bhai! 👋 Kya help chahiye?\nTry: 'add 10 soaps' ya 'show inventory'`,
     help:
-      "Main ye kar sakta hoon 🤖\n• add 10 soaps — stock add\n• sold 5 chips — sale record\n• show inventory — stock list\n• low stock — order karne wale items\n• today report / hafte ka report — bikri\n• sugar price 45 — price set\n• ramesh udhaar 50 — khata mein likho\n• ramesh ne 30 diya — udhaar wapas\n• udhaar list — kaun kitna dega\n• undo — last entry cancel",
+      "Main ye kar sakta hoon 🤖\n• add 10 soaps — stock add\n• sold 5 chips — sale record\n• show inventory — stock list\n• low stock — order karne wale items\n• today report / hafte ka report — bikri\n• sugar price 45 — price set\n• ramesh udhaar 50 — khata mein likho\n• ramesh ne 30 diya — udhaar wapas\n• udhaar list — kaun kitna dega\n• day summary — aaj ka pura hisab\n• summary 9pm — rozana 9pm pe summary\n• undo — last entry cancel",
     notUnderstood: "Samajh nahi aaya 🙏 Try: 'add 5 chips' ya 'show inventory'",
     notUnderstoodLine: (line: string) => `⚠️ Samajh nahi aaya: "${line}"`,
     trialExpired: (support: string) =>
       `Aapka free trial khatam ho gaya hai. Kirana AI aage use karne ke liye support${support ? ` (${support})` : ""} se baat karein.`,
     activated: "✅ Aapka Kirana AI account ab active hai! Shukriya 🙏 Continue karne ke liye koi bhi message bhejein.",
+    summaryHeader: (name: string) => `🌙 ${name} bhai, aaj ka pura hisab:`,
+    summarySet: (time: string) => `✅ Rozana summary ${time} pe set kar di — har shaam milega 🌙\n('day summary' type karke abhi bhi dekh sakte ho.)`,
+    summaryReorderHeader: "🛒 Jaldi order karo:",
+    summaryUdhaarDue: (total: number) => `📒 Udhaar vasooli baaki: ₹${total}`,
   },
 };
 

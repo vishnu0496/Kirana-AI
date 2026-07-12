@@ -48,6 +48,8 @@ export interface Shop {
   logs: Transaction[];
   pendingPriceFor: string[];
   khata?: Record<string, KhataAccount>; // key: lowercased customer name
+  summaryTime?: string; // "HH:MM" (IST) for the daily auto-summary; unset = off
+  lastSummaryDate?: string; // "YYYY-MM-DD" (IST) the summary was last sent
 }
 
 export interface OnboardingState {
@@ -443,6 +445,28 @@ export function setBillingStatus(phone: string, status: Billing["status"]): bool
   if (status === "active") shop.billing.activatedAt = nowIso();
   scheduleSave();
   return true;
+}
+
+// ── Daily summary scheduling ───────────────────────────────
+
+export function setSummaryTime(phone: string, time: string): boolean {
+  const shop = data.shops[phone];
+  if (!shop) return false;
+  shop.summaryTime = time;
+  shop.updatedAt = nowIso();
+  scheduleSave();
+  return true;
+}
+
+export function markSummarySent(phone: string, isoDate: string): void {
+  const shop = data.shops[phone];
+  if (!shop) return;
+  shop.lastSummaryDate = isoDate;
+  scheduleSave();
+}
+
+export function getAllShops(): Shop[] {
+  return Object.values(data.shops);
 }
 
 // ── Webhook idempotency ────────────────────────────────────

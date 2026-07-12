@@ -120,6 +120,20 @@ export async function handleIncomingMessage(
   const reply = getReply(lang);
   const ownerName = (profile.ownerName || "Owner").split(" ")[0];
 
+  // Daily summary: "summary" / "day summary" (on demand), "summary 9pm" (set time),
+  // or the local words "hisab" / "lekka" for an instant digest.
+  if (!buttonId && (/\bsummary\b/i.test(messageText) || /\b(hisab|lekka)\b/i.test(messageText))) {
+    const setMatch = messageText.match(/summary\s+(?:at\s+|time\s+)?(.+)/i);
+    const time = setMatch ? parseTime(setMatch[1]) : null;
+    if (time) {
+      store.setSummaryTime(sender, time);
+      await sendText(sender, reply.summarySet(formatTime(time)));
+    } else {
+      await sendText(sender, buildDailySummary(sender, ownerName, reply));
+    }
+    return;
+  }
+
   // Button taps map directly to an action; free text goes through the parser.
   const lines = buttonId
     ? [messageText || buttonId]
@@ -413,17 +427,13 @@ function applyStockUpdate(
   return false;
 }
 
-function buildReport(sender: string, ownerName: string, reply: Reply, days?: number): string {
-  const txs = days ? store.getTransactionsSince(sender, days) : store.getTodayTransactions(sender);
-  const header =
-    days === 7 ? reply.weekReportHeader(ownerName)
-    : days === 30 ? reply.monthReportHeader(ownerName)
-    : reply.reportHeader(ownerName);
-  if (txs.length === 0) return reply.emptyReport;
+interface SellEntry { qty: number; revenue: number; displayName: string }
 
-  const sells = txs.filter((t) => t.action === "SELL");
-  const sellMap: Record<string, { qty: number; revenue: number; displayName: string }> = {};
-  for (const t of sells) {
+/** Aggregate SELL transactions by item, revenue at the current price. */
+function aggregateSells(sender: string, txs: ReturnType<typeof store.getTodayTransactions>): SellEntry[] {
+  const sellMap: Record<string, SellEntry> = {};
+  for (const t of txs) {
+    if (t.action !== "SELL") continue;
     const key = t.item.toLowerCase().trim();
     if (!key) continue;
     // Prefer the current price so late price fixes correct the report.
@@ -433,8 +443,18 @@ function buildReport(sender: string, ownerName: string, reply: Reply, days?: num
     sellMap[key].qty += t.quantity;
     sellMap[key].revenue += revenue;
   }
+  return Object.values(sellMap).sort((a, b) => b.revenue - a.revenue || b.qty - a.qty);
+}
 
-  const entries = Object.values(sellMap).sort((a, b) => b.revenue - a.revenue || b.qty - a.qty);
+function buildReport(sender: string, ownerName: string, reply: Reply, days?: number): string {
+  const txs = days ? store.getTransactionsSince(sender, days) : store.getTodayTransactions(sender);
+  const header =
+    days === 7 ? reply.weekReportHeader(ownerName)
+    : days === 30 ? reply.monthReportHeader(ownerName)
+    : reply.reportHeader(ownerName);
+  if (txs.length === 0) return reply.emptyReport;
+
+  const entries = aggregateSells(sender, txs);
   const sellLines = entries.map(({ qty, revenue, displayName }) =>
     `🛒 ${capitalize(displayName)}: ${qty}${revenue ? ` (₹${revenue})` : ""}`
   );
@@ -444,4 +464,76 @@ function buildReport(sender: string, ownerName: string, reply: Reply, days?: num
   if (entries.length >= 2) lines.push("", reply.topSeller(capitalize(entries[0].displayName)));
   lines.push("", reply.reportRevenue(totalRevenue));
   return lines.join("\n");
+}
+
+/** End-of-day digest: today's sales + revenue, items to reorder, and udhaar owed. */
+function buildDailySummary(sender: string, ownerName: string, reply: Reply): string {
+  const entries = aggregateSells(sender, store.getTodayTransactions(sender));
+  const lines: string[] = [reply.summaryHeader(ownerName), ""];
+
+  const sellLines = entries.map(({ qty, revenue, displayName }) =>
+    `🛒 ${capitalize(displayName)}: ${qty}${revenue ? ` (₹${revenue})` : ""}`
+  );
+  lines.push(sellLines.length ? sellLines.join("\n") : reply.noSalesToday);
+  if (entries.length >= 2) lines.push(reply.topSeller(capitalize(entries[0].displayName)));
+  const totalRevenue = entries.reduce((sum, { revenue }) => sum + revenue, 0);
+  lines.push(reply.reportRevenue(totalRevenue));
+
+  const lowItems = store.getInventory(sender).filter((i) => i.quantity < config.lowStockThreshold);
+  if (lowItems.length > 0) {
+    lines.push("", reply.summaryReorderHeader);
+    for (const i of lowItems) lines.push(reply.lowStockItem(capitalize(i.name), i.quantity, i.unit));
+  }
+
+  const udhaarTotal = store.getKhata(sender).reduce((sum, k) => sum + Math.max(0, k.balance), 0);
+  if (udhaarTotal > 0) lines.push("", reply.summaryUdhaarDue(udhaarTotal));
+
+  return lines.join("\n");
+}
+
+// ── Daily-summary scheduling (IST wall clock, timezone-independent) ──
+
+function pad2(n: number): string { return String(n).padStart(2, "0"); }
+
+/** IST date ("YYYY-MM-DD") and time ("HH:MM") for a given instant, any server TZ. */
+function istParts(now: Date = new Date()): { date: string; hhmm: string } {
+  const d = new Date(now.getTime() + 5.5 * 3600_000); // shift UTC → IST, then read UTC fields
+  return {
+    date: `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`,
+    hhmm: `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`,
+  };
+}
+
+/** Parse "9pm", "9 pm", "9:30pm", "21:00", "9" → "HH:MM" (24h), or null. Bare 1–11 assumed PM (shop closing). */
+export function parseTime(raw: string): string | null {
+  const m = raw.trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = m[2] ? parseInt(m[2], 10) : 0;
+  if (h > 23 || min > 59) return null;
+  const ap = m[3];
+  if (ap === "pm" && h < 12) h += 12;
+  else if (ap === "am" && h === 12) h = 0;
+  else if (!ap && h >= 1 && h <= 11) h += 12; // "9" → 9 PM
+  return `${pad2(h)}:${pad2(min)}`;
+}
+
+/** "21:00" → "9:00 PM" for a friendly confirmation. */
+export function formatTime(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const ap = h < 12 ? "AM" : "PM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${pad2(m)} ${ap}`;
+}
+
+/** Sends each shop its daily summary once, when its set time has arrived. */
+export async function runDueSummaries(now: Date = new Date()): Promise<void> {
+  const { date, hhmm } = istParts(now);
+  for (const shop of store.getAllShops()) {
+    if (!shop.summaryTime || shop.lastSummaryDate === date || hhmm < shop.summaryTime) continue;
+    store.markSummarySent(shop.phone, date); // mark first so an overlapping tick can't double-send
+    const reply = getReply(shop.language || "english");
+    const ownerName = (shop.ownerName || "Owner").split(" ")[0];
+    await sendText(shop.phone, buildDailySummary(shop.phone, ownerName, reply));
+  }
 }

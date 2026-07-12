@@ -119,6 +119,27 @@ test("a weak language guess does not flip an established language", async () => 
   assert.match(reply, /artham kaledu/i); // stayed Telugu
 });
 
+test("day summary on demand, and setting a summary time", async () => {
+  const U = "919876543233";
+  harness.mock.clear();
+  await harness.sendUserMessage(U, "hello");
+  await harness.sendUserMessage(U, "Corner Shop");
+  await harness.sendUserMessage(U, "Meena");
+
+  // Set a daily summary time.
+  const [setReply] = await harness.sendUserMessage(U, "summary 9pm");
+  assert.match(setReply, /9:00 PM/);
+  assert.match(setReply, /Daily summary set/i);
+
+  // On-demand summary reflects the day's activity.
+  await harness.sendUserMessage(U, "add 3 soap", 2);
+  await harness.sendUserMessage(U, "40");
+  await harness.sendUserMessage(U, "sold 1 soap");
+  const [summary] = await harness.sendUserMessage(U, "day summary");
+  assert.match(summary, /day summary/i);
+  assert.match(summary, /Reorder soon/i); // soap now at 2 (<5)
+});
+
 test("selling an unknown item does not create it", async () => {
   harness.mock.clear();
   const [replyText] = await harness.sendUserMessage(USER, "sold 5 unicorn dust");
