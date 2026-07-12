@@ -22,6 +22,7 @@ KiranaAI is an inventory management assistant for small shop owners (kirana shop
 * **Self-learning**: a local Naive Bayes model (no AI API) classifies intent/language and keeps learning from your own messages; retrain anytime with `npm run train`.
 * **Khata (udhaar) ledger**: track customer credit like the paper notebook — "ramesh udhaar 50", "ramesh ne 30 diya", "udhaar list" shows who owes what.
 * **Prices & reports**: asks for the price of new items, tracks revenue; daily, weekly ("hafte ka report") and monthly reports with best-seller highlights.
+* **Bulk CSV import**: send a CSV file (`item,quantity,unit,price`) as a WhatsApp document to load hundreds of SKUs at once instead of typing each one — for shops with large, varied inventory (multiple brands/variants/pack sizes per category).
 * **Undo & corrections**: "undo" / "galti ho gayi" reverses the last entry; "soap stock 25 karo" sets an absolute quantity; "remove chips" deletes an item.
 * **Low-stock alerts**: warns when an item drops below the threshold and lists items to reorder.
 * **Interactive buttons**: View Stock / Today's Report / Low Stock menus.

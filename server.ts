@@ -49,13 +49,14 @@ interface IncomingMessage {
   text: string;
   messageId: string;
   buttonId: string;
+  documentId: string;
 }
 
 function extractMessage(body: any): IncomingMessage | null {
   if (body?.object === "whatsapp_business_account") {
     const msg = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
     if (msg?.type === "text") {
-      return { sender: msg.from, text: msg.text?.body ?? "", messageId: msg.id ?? "", buttonId: "" };
+      return { sender: msg.from, text: msg.text?.body ?? "", messageId: msg.id ?? "", buttonId: "", documentId: "" };
     }
     if (msg?.type === "interactive" && msg.interactive?.type === "button_reply") {
       return {
@@ -63,17 +64,22 @@ function extractMessage(body: any): IncomingMessage | null {
         text: msg.interactive.button_reply?.title ?? "",
         messageId: msg.id ?? "",
         buttonId: msg.interactive.button_reply?.id ?? "",
+        documentId: "",
       };
+    }
+    if (msg?.type === "document" && msg.document?.id) {
+      return { sender: msg.from, text: "", messageId: msg.id ?? "", buttonId: "", documentId: msg.document.id };
     }
     return null;
   }
-  // Simple test payload shape: { text, from, id?, buttonId? }
-  if (body?.text) {
+  // Simple test payload shape: { text, from, id?, buttonId?, documentId? }
+  if (body?.text || body?.documentId) {
     return {
       sender: body.from || "919999999999",
-      text: body.text,
+      text: body.text || "",
       messageId: body.id || body.messageId || "",
       buttonId: body.buttonId || "",
+      documentId: body.documentId || "",
     };
   }
   return null;
@@ -100,7 +106,7 @@ async function handleWebhookPost(req: http.IncomingMessage, res: http.ServerResp
   }
 
   const incoming = extractMessage(body);
-  if (!incoming || !incoming.text || !incoming.sender) {
+  if (!incoming || (!incoming.text && !incoming.documentId) || !incoming.sender) {
     res.writeHead(200);
     res.end();
     return;
@@ -113,10 +119,14 @@ async function handleWebhookPost(req: http.IncomingMessage, res: http.ServerResp
     return;
   }
 
-  console.log(`[WA RECV] ${incoming.sender}: ${incoming.text} (ID: ${incoming.messageId || "none"})`);
+  console.log(
+    incoming.documentId
+      ? `[WA RECV] ${incoming.sender}: <document ${incoming.documentId}> (ID: ${incoming.messageId || "none"})`
+      : `[WA RECV] ${incoming.sender}: ${incoming.text} (ID: ${incoming.messageId || "none"})`
+  );
 
   try {
-    await handleIncomingMessage(incoming.sender, incoming.text, incoming.buttonId);
+    await handleIncomingMessage(incoming.sender, incoming.text, incoming.buttonId, incoming.documentId);
   } catch (err) {
     console.error("[HANDLER ERROR]", err instanceof Error ? err.stack : err);
   }

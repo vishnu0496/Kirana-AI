@@ -74,6 +74,51 @@ test("add stock, price queue, sell, inventory, report", async () => {
   assert.match(report, /₹80/);
 });
 
+test("price answer accepts trailing units like '40/- per half litre'", async () => {
+  // Dedicated user so state/language doesn't leak into later tests.
+  const U = "919876543230";
+  harness.mock.clear();
+  await harness.sendUserMessage(U, "hello");
+  await harness.sendUserMessage(U, "Milk Store");
+  await harness.sendUserMessage(U, "Ravi");
+
+  const addReplies = await harness.sendUserMessage(U, "add 5 milk", 2);
+  assert.match(addReplies[1], /selling price of Milk/i);
+
+  // Shopkeeper answers naturally with units, not a bare number.
+  const [confirmed] = await harness.sendUserMessage(U, "40/- per half litre");
+  assert.match(confirmed, /Milk price saved: ₹40/);
+});
+
+test("a numeric price answer does not flip the shop's language", async () => {
+  const U = "919876543231";
+  harness.mock.clear();
+  await harness.sendUserMessage(U, "hello");
+  await harness.sendUserMessage(U, "Telugu Store");
+  await harness.sendUserMessage(U, "Kiran");
+
+  // Put the shop into Telugu, then add an item to trigger a price question.
+  await harness.sendUserMessage(U, "das sabbulu vachayi", 2);
+  const [priceReply] = await harness.sendUserMessage(U, "27/- each");
+  // Reply must stay Telugu (price save confirmation), not switch to Hindi/English.
+  assert.match(priceReply, /save ayindi/);
+});
+
+test("a weak language guess does not flip an established language", async () => {
+  const U = "919876543232";
+  harness.mock.clear();
+  await harness.sendUserMessage(U, "hello");
+  await harness.sendUserMessage(U, "Store");
+  await harness.sendUserMessage(U, "Anil");
+  // Establish Telugu (strong signal), then clear the pending price question.
+  await harness.sendUserMessage(U, "das paalu vachayi", 2);
+  await harness.sendUserMessage(U, "30");
+  // A weak-signal English/number reply must NOT flip to Hindi.
+  const [reply] = await harness.sendUserMessage(U, "40/- per half litre");
+  assert.doesNotMatch(reply, /Samajh nahi aaya/); // Hindi "not understood"
+  assert.match(reply, /artham kaledu/i); // stayed Telugu
+});
+
 test("selling an unknown item does not create it", async () => {
   harness.mock.clear();
   const [replyText] = await harness.sendUserMessage(USER, "sold 5 unicorn dust");

@@ -188,6 +188,9 @@ test("cleanItemName strips verbs and noise", () => {
   assert.strictEqual(cleanItemName("sugar aaya"), "sugar");
   assert.strictEqual(cleanItemName("sold chips"), "chips");
   assert.strictEqual(cleanItemName("soap vachayi"), "soap");
+  // Romanization variant with double-c (as a real shopkeeper typed "paalu vacchayi").
+  assert.strictEqual(cleanItemName("paalu vacchayi"), "paalu");
+  assert.strictEqual(cleanItemName("sabbulu vacchindi"), "sabbulu");
 });
 
 test("findFuzzyMatch", () => {

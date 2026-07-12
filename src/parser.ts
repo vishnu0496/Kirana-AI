@@ -39,6 +39,7 @@ const addVerbs = [
   "loaded", "load", "filled", "fill", "inward", "new stock", "new batch",
   // Telugu (Tenglish)
   "vachayi", "vachindi", "vachenu", "tesukuvachha", "tecchaanu",
+  "vacchayi", "vacchindi", "vacchaayi", "vachaayi", "vacchay",
   "pettandi", "veyyandi", "veyyi", "konugoolu", "konukonaamu", "konnaamu",
   "sarukulu vachayi", "vachhayi", "tecchaaru", "load chesaamu",
   // Hindi (Hinglish)

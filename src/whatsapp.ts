@@ -75,6 +75,30 @@ export async function sendText(to: string, text: string): Promise<void> {
   }
 }
 
+/** Downloads a WhatsApp media attachment (two-step Cloud API flow) and returns it as UTF-8 text. */
+export async function downloadMedia(mediaId: string): Promise<string | null> {
+  if (!config.whatsappToken) return null;
+  try {
+    const metaRes = await fetch(`${config.whatsappBaseUrl}/${config.whatsappApiVersion}/${mediaId}`, {
+      headers: { Authorization: `Bearer ${config.whatsappToken}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!metaRes.ok) return null;
+    const meta = (await metaRes.json()) as { url?: string };
+    if (!meta.url) return null;
+
+    const fileRes = await fetch(meta.url, {
+      headers: { Authorization: `Bearer ${config.whatsappToken}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!fileRes.ok) return null;
+    return Buffer.from(await fileRes.arrayBuffer()).toString("utf-8");
+  } catch (err) {
+    console.error("[WA MEDIA ERROR]", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 export async function sendButtons(to: string, bodyText: string, buttons: Button[]): Promise<void> {
   const ok = await post({
     messaging_product: "whatsapp",

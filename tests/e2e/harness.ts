@@ -24,9 +24,36 @@ export class MockWhatsAppServer {
   private server: http.Server;
   public captured: { url: string; body: any }[] = [];
   public port = 0;
+  private mediaContent = new Map<string, string>();
+
+  /** Registers content that downloadMedia() should "download" for a given media ID. */
+  setMediaContent(mediaId: string, content: string): void {
+    this.mediaContent.set(mediaId, content);
+  }
 
   constructor() {
     this.server = http.createServer((req, res) => {
+      // Media two-step download: GET /v.../<mediaId> -> { url }, then GET that url -> raw bytes.
+      const mediaMetaMatch = req.url?.match(/^\/v\d+\.\d+\/(media-[^/?]+)$/);
+      if (req.method === "GET" && mediaMetaMatch) {
+        const mediaId = mediaMetaMatch[1];
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ url: `http://127.0.0.1:${this.port}/cdn/${mediaId}` }));
+        return;
+      }
+      const cdnMatch = req.url?.match(/^\/cdn\/(media-[^/?]+)$/);
+      if (req.method === "GET" && cdnMatch) {
+        const content = this.mediaContent.get(cdnMatch[1]);
+        if (content === undefined) {
+          res.writeHead(404);
+          res.end();
+          return;
+        }
+        res.writeHead(200, { "Content-Type": "text/csv" });
+        res.end(content);
+        return;
+      }
+
       let body = "";
       req.on("data", (c) => (body += c));
       req.on("end", () => {
@@ -154,6 +181,19 @@ export class TestHarness {
   async sendUserMessage(from: string, text: string, expectReplies = 1, id?: string): Promise<string[]> {
     const before = this.mock.captured.length;
     const res = await this.sendWebhook({ text, from, id: id ?? `wamid.test.${Date.now()}.${Math.random()}` });
+    if (res.status !== 200) throw new Error(`Webhook returned ${res.status}`);
+    if (expectReplies > 0) await this.mock.waitForMessages(before + expectReplies);
+    return this.mock.texts().slice(before);
+  }
+
+  /** Send a document (e.g. CSV inventory file) and wait for `expectReplies` bot replies. */
+  async sendDocumentMessage(from: string, mediaId: string, expectReplies = 1): Promise<string[]> {
+    const before = this.mock.captured.length;
+    const res = await this.sendWebhook({
+      from,
+      documentId: mediaId,
+      id: `wamid.test.${Date.now()}.${Math.random()}`,
+    });
     if (res.status !== 200) throw new Error(`Webhook returned ${res.status}`);
     if (expectReplies > 0) await this.mock.waitForMessages(before + expectReplies);
     return this.mock.texts().slice(before);

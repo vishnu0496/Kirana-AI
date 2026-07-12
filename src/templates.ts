@@ -4,7 +4,11 @@ const replyTemplates = {
     shopRegistered: (shop: string) =>
       `Great! ${shop} registered ✅\nWhat is your name?`,
     welcomeUser: (name: string, shop: string) =>
-      `Welcome ${name}! 🎉\n${shop} is ready on Kirana AI.\n\nTry these:\n• add 10 soaps\n• sold 5 chips\n• show inventory\n• today report`,
+      `Welcome ${name}! 🎉\n${shop} is ready on Kirana AI.\n\nTry these:\n• add 10 soaps\n• sold 5 chips\n• show inventory\n• today report\n\nGot hundreds of items? Send a CSV file (columns: item,quantity,unit,price) and I'll import it all at once 📄`,
+    importSummary: (count: number, skipped: number) =>
+      `✅ Imported ${count} item${count === 1 ? "" : "s"} from your file!${skipped ? ` ⚠️ Skipped ${skipped} row${skipped === 1 ? "" : "s"} (bad format).` : ""}`,
+    importFailed:
+      "❌ Couldn't read that file. Send a CSV with columns: item,quantity,unit,price (unit and price are optional). In Excel: File → Save As → CSV.",
     addSuccess: (qty: number, item: string, total: number, unit: string = "") =>
       `Added ${qty} ${unit} ${item}! 📦 Total stock: ${total} ${unit}`.replace(/\s+/g, " ").trim(),
     addSuccessWithMerge: (qty: number, unit: string, typed: string, matched: string, total: number) =>
@@ -63,74 +67,82 @@ const replyTemplates = {
     activated: "✅ Your Kirana AI account is now active! Thanks 🙏 Send any message to continue.",
   },
   telugu: {
-    askShopName: "Kirana AI ki swaagatam! 👋\nMee shop peru cheppagalaru?",
+    askShopName: "Kirana AI ki swaagatam! 👋\nMee shop peru cheppandi?",
     shopRegistered: (shop: string) =>
-      `Baagundi! ${shop} register ayyindi ✅\nMee peru cheppandi?`,
+      `Super! ${shop} register ayindi ✅\nMee peru cheppandi?`,
     welcomeUser: (name: string, shop: string) =>
-      `Swaagatam ${name} anna! 🎉\n${shop} Kirana AI lo ready ga undi.\n\nIvi try cheyyandi:\n• add 10 soaps\n• sold 5 chips\n• show inventory\n• today report`,
+      `Swaagatam ${name} anna! 🎉\n${shop} ippudu Kirana AI lo ready.\n\nIvi try cheyandi:\n• add 10 soaps\n• sold 5 chips\n• show inventory\n• today report\n\nVandala items unnaya? CSV file pampandi (columns: item,quantity,unit,price) — anni okesari add chestanu 📄`,
+    importSummary: (count: number, skipped: number) =>
+      `✅ Mee file nunchi ${count} items add ayyayi!${skipped ? ` ⚠️ ${skipped} rows skip ayyayi (format sarigga ledu).` : ""}`,
+    importFailed:
+      "❌ Ee file chadavaleka poyanu. CSV pampandi columns: item,quantity,unit,price tho (unit, price optional). Excel lo: File → Save As → CSV.",
     addSuccess: (qty: number, item: string, total: number, unit: string = "") =>
-      `${qty} ${unit} ${item} add chesamu! 📦 Meeru unna stock: ${total} ${unit}`.replace(/\s+/g, " ").trim(),
+      `${qty} ${unit} ${item} add ayindi! 📦 Ippudu total stock: ${total} ${unit}`.replace(/\s+/g, " ").trim(),
     addSuccessWithMerge: (qty: number, unit: string, typed: string, matched: string, total: number) =>
-      `'${matched}' ki ${qty}${unit ? " " + unit : ""} add chesamu! 📦 ('${typed}' ante '${matched}' anukunnanu) Total: ${total}`,
+      `'${matched}' ki ${qty}${unit ? " " + unit : ""} add chesanu! 📦 ('${typed}' ante '${matched}' anukunna) Total: ${total}`,
     soldSuccess: (qty: number, item: string, remaining: number, unit: string = "") =>
-      `${qty} ${unit} ${item} ammamu! 🛒 Migilina stock: ${remaining} ${unit}`.replace(/\s+/g, " ").trim(),
+      `${qty} ${unit} ${item} ammesaru! 🛒 Migilindi: ${remaining} ${unit}`.replace(/\s+/g, " ").trim(),
     lowStock: (item: string, remaining: number, unit: string = "") =>
-      `⚠️ Stock takkuva: ${item} kevalam ${remaining} ${unit} undhi — tvaraga order ivvandi!`.replace(/\s+/g, " ").trim(),
+      `⚠️ Stock takkuvaga undi: ${item} inka ${remaining} ${unit} mathrame undi — twaraga order cheyandi!`.replace(/\s+/g, " ").trim(),
     outOfStock: (item: string) =>
-      `❌ ${item} mee stock lo ledu. Mundu add cheyyandi (e.g. 'add 10 ${item}').`,
-    inventoryHeader: (name: string) => `${name} anna, mee inventory idi:`,
-    emptyStock: "Stock emi ledu 📭 Try: 'add 10 soaps'",
-    reportHeader: (name: string) => `${name} anna, neti report idi:`,
-    emptyReport: "Neti transactions emi levu! Stock add cheyandi 📦",
-    noSalesToday: "Inniki emee ammaledu 🙂",
-    lowStockHeader: (name: string) => `${name} anna, ee items order ivvandi:`,
+      `❌ ${item} mee stock lo ledu. Mundu add cheyandi (e.g. 'add 10 ${item}').`,
+    inventoryHeader: (name: string) => `${name} anna, mee stock idi:`,
+    emptyStock: "Stock inka emi ledu 📭 Try: 'add 10 soaps'",
+    reportHeader: (name: string) => `${name} anna, ee roju report:`,
+    emptyReport: "Ee roju inka emi transactions ledu! Stock add cheyandi 📦",
+    noSalesToday: "Ee roju inka emi ammaledu 🙂",
+    lowStockHeader: (name: string) => `${name} anna, ee items order cheyandi:`,
     lowStockItem: (item: string, qty: number, unit: string) =>
-      `⚠️ ${item}: kevalam ${qty}${unit ? " " + unit : ""} undhi`,
-    noLowStock: (name: string) => `${name} anna, anni items stock bagundi! 🟢`,
-    reportRevenue: (total: number) => `💰 Mottam aaya: ₹${total}`,
+      `⚠️ ${item}: inka ${qty}${unit ? " " + unit : ""} mathrame undi`,
+    noLowStock: (name: string) => `${name} anna, anni items stock baaga undi! 🟢`,
+    reportRevenue: (total: number) => `💰 Motham sales: ₹${total}`,
     weekReportHeader: (name: string) => `${name} anna, ee vaaram report (7 rojulu):`,
     monthReportHeader: (name: string) => `${name} anna, ee nela report (30 rojulu):`,
-    topSeller: (item: string) => `🏆 Ekkuva ammindi: ${item}`,
+    topSeller: (item: string) => `🏆 Ekkuva ammudu: ${item}`,
     undoneAdd: (qty: number, item: string, newQty: number) =>
-      `↩️ Cancel chesamu: ${qty} ${item} teesesamu (tappuga add ayindi). Ippudu stock: ${newQty}`,
+      `↩️ Cancel chesanu: ${qty} ${item} teesesanu (potapatuna add ayindi). Ippudu stock: ${newQty}`,
     undoneSell: (qty: number, item: string, newQty: number) =>
-      `↩️ Cancel chesamu: ${qty} ${item} malli stock lo pettamu. Ippudu stock: ${newQty}`,
+      `↩️ Cancel chesanu: ${qty} ${item} malli stock lo pettanu. Ippudu stock: ${newQty}`,
     nothingToUndo: "Cancel cheyadaniki emi ledu 🤷",
-    itemRemoved: (item: string) => `🗑️ ${item} inventory nunchi teesesamu.`,
+    itemRemoved: (item: string) => `🗑️ ${item} stock nunchi teesesanu.`,
     stockSet: (item: string, qty: number, unit: string) =>
-      `✏️ ${item} stock ${qty} ${unit} ga set chesamu`.replace(/\s+/g, " ").trim(),
+      `✏️ ${item} stock ${qty} ${unit} ki set chesanu`.replace(/\s+/g, " ").trim(),
     khataCredit: (name: string, amount: number, balance: number) =>
-      `📒 ${name} ki ₹${amount} appu rasamu. Mottam baaki: ₹${balance}`,
+      `📒 ${name} ki ₹${amount} appu rasanu. Motham baaki: ₹${balance}`,
     khataPayment: (name: string, amount: number, balance: number) =>
       balance > 0
         ? `📒 ${name} ₹${amount} kattaru. Migilina baaki: ₹${balance}`
         : `📒 ${name} ₹${amount} kattaru. Khata clear ayindi ✅`,
-    khataHeader: (name: string) => `${name} anna, mee appu book:`,
-    khataEmpty: "Evariki appu ledu 🟢 Khata clean ga undi!",
+    khataHeader: (name: string) => `${name} anna, mee appula khata:`,
+    khataEmpty: "Evaru appu levu 🟢 Khata clean ga undi!",
     khataCustomer: (name: string, balance: number) =>
-      balance > 0 ? `📒 ${name} baaki: ₹${balance}` : `📒 ${name} ki baaki ledu ✅`,
-    khataTotal: (total: number) => `💰 Mottam raavalsindi: ₹${total}`,
+      balance > 0 ? `📒 ${name} baaki: ₹${balance}` : `📒 ${name} ki baaki emi ledu ✅`,
+    khataTotal: (total: number) => `💰 Motham raavalsindi: ₹${total}`,
     khataUnknownCustomer: (name: string) => `🤔 ${name} peru tho khata ledu.`,
-    askPrice: (item: string) => `${item} amme dhara enti? (e.g. reply: 40)`,
-    priceConfirmed: (item: string, price: number) => `✅ ${item} dhara save chesamu: ₹${price}`,
-    askPriceAgain: (item: string) => `${item} dhara number lo cheppandi (e.g. 40)`,
-    priceUpdated: (item: string, price: number) => `✅ ${item} dhara update chesamu: ₹${price}`,
+    askPrice: (item: string) => `${item} price enti? (e.g. reply: 40)`,
+    priceConfirmed: (item: string, price: number) => `✅ ${item} price save ayindi: ₹${price}`,
+    askPriceAgain: (item: string) => `${item} price number lo cheppandi (e.g. 40)`,
+    priceUpdated: (item: string, price: number) => `✅ ${item} price update ayindi: ₹${price}`,
     greeting: (name: string) =>
-      `Baagundi ${name} anna! 👋 Ela help cheyyali?\nTry: 'add 10 soaps' or 'show inventory'`,
+      `Ela unnaru ${name} anna! 👋 Em kavali?\nTry: 'add 10 soaps' or 'show inventory'`,
     help:
-      "Nenu cheyagalanu 🤖\n• add 10 soaps — stock add\n• sold 5 chips — ammakam record\n• show inventory — stock list\n• low stock — order cheyyalsina items\n• today report / vaaram report — ammakalu\n• sugar price 45 — dhara set\n• ramesh appu 50 — khata lo rayadam\n• ramesh 30 katti — appu katting\n• appu list — evaru baaki unnaru\n• undo — last entry cancel",
-    notUnderstood: "Artham kaaledu 🙏 Try: 'add 5 chips' or 'show inventory'",
-    notUnderstoodLine: (line: string) => `⚠️ Artham kaaledu: "${line}"`,
+      "Nenu ivi cheyagalanu 🤖\n• add 10 soaps — stock add\n• sold 5 chips — ammakam record\n• show inventory — stock chudandi\n• low stock — order cheyalsina items\n• today report / vaaram report — ammakalu\n• sugar price 45 — price set\n• ramesh appu 50 — khata lo rayadam\n• ramesh 30 katti — appu teerchadam\n• appu list — evaru entha baaki\n• undo — last entry cancel",
+    notUnderstood: "Artham kaledu 🙏 Try: 'add 5 chips' or 'show inventory'",
+    notUnderstoodLine: (line: string) => `⚠️ Idi artham kaledu: "${line}"`,
     trialExpired: (support: string) =>
-      `Mee trial samayam ayipoyindi. Kirana AI ni thirigi vaadadaaniki support${support ? ` (${support})` : ""} ni sampradinchandi.`,
-    activated: "✅ Mee Kirana AI account ippudu active! Thanks 🙏 Continue cheyadaniki edaina msg pettandi.",
+      `Mee trial time ayipoyindi. Kirana AI malli vaadadaniki support${support ? ` (${support})` : ""} ni contact cheyandi.`,
+    activated: "✅ Mee Kirana AI account ippudu active! Thanks 🙏 Continue cheyadaniki edaina message pampandi.",
   },
   hindi: {
     askShopName: "Kirana AI mein swagat! 👋\nApka shop ka naam kya hai?",
     shopRegistered: (shop: string) =>
       `Badhiya! ${shop} register ho gaya ✅\nApka naam batayein?`,
     welcomeUser: (name: string, shop: string) =>
-      `Swagat hai ${name} bhai! 🎉\n${shop} Kirana AI pe ready hai.\n\nYe try karein:\n• add 10 soaps\n• sold 5 chips\n• show inventory\n• today report`,
+      `Swagat hai ${name} bhai! 🎉\n${shop} Kirana AI pe ready hai.\n\nYe try karein:\n• add 10 soaps\n• sold 5 chips\n• show inventory\n• today report\n\nSaikdo items hai? CSV file bhejein (columns: item,quantity,unit,price), main sab ek saath add kar dunga 📄`,
+    importSummary: (count: number, skipped: number) =>
+      `✅ Aapki file se ${count} item${count === 1 ? "" : "s"} add ho gaye!${skipped ? ` ⚠️ ${skipped} row${skipped === 1 ? "" : "s"} skip ho gaye (format sahi nahi tha).` : ""}`,
+    importFailed:
+      "❌ Ye file nahi padh paya. CSV bhejein columns ke saath: item,quantity,unit,price (unit aur price optional hai). Excel mein: File → Save As → CSV.",
     addSuccess: (qty: number, item: string, total: number, unit: string = "") =>
       `${qty} ${unit} ${item} add ho gaya! 📦 Total stock: ${total} ${unit}`.replace(/\s+/g, " ").trim(),
     addSuccessWithMerge: (qty: number, unit: string, typed: string, matched: string, total: number) =>
@@ -185,7 +197,7 @@ const replyTemplates = {
     notUnderstood: "Samajh nahi aaya 🙏 Try: 'add 5 chips' ya 'show inventory'",
     notUnderstoodLine: (line: string) => `⚠️ Samajh nahi aaya: "${line}"`,
     trialExpired: (support: string) =>
-      `Aapka trial period khatam ho gaya hai. Kirana AI ka upyog jari rakhne ke liye kripya support${support ? ` (${support})` : ""} se sampark karein.`,
+      `Aapka free trial khatam ho gaya hai. Kirana AI aage use karne ke liye support${support ? ` (${support})` : ""} se baat karein.`,
     activated: "✅ Aapka Kirana AI account ab active hai! Shukriya 🙏 Continue karne ke liye koi bhi message bhejein.",
   },
 };

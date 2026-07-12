@@ -1,12 +1,14 @@
 import { config } from "./env.ts";
 import { smartParse, detectLanguage, capitalize, explicitAction } from "./parser.ts";
+import { classifyLanguage } from "./ml/index.ts";
 import type { ParseResult } from "./parser.ts";
 import { getReply } from "./templates.ts";
 import type { Lang } from "./templates.ts";
 import { checkAccess } from "./billing.ts";
-import { sendText, sendButtons } from "./whatsapp.ts";
+import { sendText, sendButtons, downloadMedia } from "./whatsapp.ts";
 import type { Button } from "./whatsapp.ts";
 import * as store from "./store.ts";
+import { parseInventoryCsv } from "./bulkImport.ts";
 
 const MENU_BUTTONS: Button[] = [
   { id: "menu_inventory", title: "📦 View Stock" },
@@ -25,11 +27,32 @@ const BUTTON_ACTIONS: Record<string, ParseResult> = {
   menu_low_stock: { action: "low_stock" },
 };
 
-/** Handle one incoming WhatsApp message (text or button tap). */
+/** Downloads, parses, and applies a CSV inventory file sent as a WhatsApp document. */
+async function handleBulkImport(sender: string, lang: Lang, mediaId: string): Promise<void> {
+  const reply = getReply(lang);
+  const text = await downloadMedia(mediaId);
+  if (!text) {
+    await sendText(sender, reply.importFailed);
+    return;
+  }
+  const { rows, skipped } = parseInventoryCsv(text);
+  if (rows.length === 0) {
+    await sendText(sender, reply.importFailed);
+    return;
+  }
+  for (const row of rows) {
+    store.updateStock(sender, row.item, row.quantity, "ADD", row.unit);
+    if (row.price !== undefined) store.setItemPrice(sender, row.item, row.price);
+  }
+  await sendText(sender, reply.importSummary(rows.length, skipped));
+}
+
+/** Handle one incoming WhatsApp message (text, button tap, or document upload). */
 export async function handleIncomingMessage(
   sender: string,
   messageText: string,
-  buttonId: string = ""
+  buttonId: string = "",
+  documentId: string = ""
 ): Promise<void> {
   // Admin commands: manual billing control, no payment gateway involved.
   if (config.adminPhone && sender === config.adminPhone) {
@@ -51,6 +74,10 @@ export async function handleIncomingMessage(
 
   const profile = store.getUser(sender);
   if (!profile) {
+    if (documentId) {
+      await sendText(sender, "Please tell me your shop name first, then send your inventory file 🙂");
+      return;
+    }
     await handleOnboarding(sender, messageText);
     return;
   }
@@ -67,19 +94,31 @@ export async function handleIncomingMessage(
     return;
   }
 
-  // Switch language when the user writes in a different one.
+  if (documentId) {
+    await handleBulkImport(sender, profile.language || "english", documentId);
+    return;
+  }
+
+  // A pending price answer is handled first, in the shop's existing language —
+  // a short reply like "40/- per litre" must not be re-detected as a new language.
   let lang: Lang = profile.language || "english";
-  const newLang = detectLanguage(messageText);
-  if ((newLang === "telugu" || newLang === "hindi") && newLang !== lang) {
-    lang = newLang;
+  if (!buttonId && (await handlePriceQueue(sender, messageText, getReply(lang)))) return;
+
+  // Otherwise, switch language only on strong evidence. Weak guesses (an
+  // English/number reply like "40/- per half litre" scores ~0.70 hindi) must
+  // not flip an established language; genuine Telugu/Hindi scores ~1.00.
+  const langPred = classifyLanguage(messageText);
+  if (
+    (langPred.label === "telugu" || langPred.label === "hindi") &&
+    langPred.label !== lang &&
+    langPred.confidence >= 0.85
+  ) {
+    lang = langPred.label;
     store.saveUser(sender, { language: lang });
   }
 
   const reply = getReply(lang);
   const ownerName = (profile.ownerName || "Owner").split(" ")[0];
-
-  // Pending price queue: a bare number answers the current item's price.
-  if (!buttonId && (await handlePriceQueue(sender, messageText, reply))) return;
 
   // Button taps map directly to an action; free text goes through the parser.
   const lines = buttonId
@@ -309,10 +348,15 @@ async function handlePriceQueue(sender: string, messageText: string, reply: Repl
   const queue = store.getPriceQueue(sender);
   if (queue.length === 0) return false;
 
-  // Only a bare number (optionally with ₹/rs) is a price answer; anything
-  // else falls through to normal parsing so the user isn't trapped.
-  const priceMatch = messageText.trim().match(/^(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)$/i);
-  if (!priceMatch) {
+  // A price answer is a leading number (optionally ₹/rs) followed only by
+  // price/unit noise like "40", "40/-", "40 rs", "40/- per half litre".
+  // Anything with a real item word ("10 soap") falls through to normal parsing
+  // so the user isn't trapped in the price question.
+  const priceMatch = messageText.trim().match(/^(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(.*)$/i);
+  const rest = priceMatch ? priceMatch[2].toLowerCase().replace(/[^a-z]+/g, " ").trim() : "x";
+  const PRICE_NOISE = /^(rs|rupees?|per|each|only|half|quarter|litre|liter|ltr|l|kg|g|gram|grams|ml|packet|packets|pkt|piece|pieces|pcs|pack|dozen)$/;
+  const isPriceAnswer = priceMatch && rest.split(/\s+/).filter(Boolean).every((w) => PRICE_NOISE.test(w));
+  if (!isPriceAnswer) {
     const parsed = smartParse(messageText);
     if (parsed.action === "unknown") {
       await sendText(sender, reply.askPriceAgain(capitalize(queue[0])));
@@ -321,7 +365,7 @@ async function handlePriceQueue(sender: string, messageText: string, reply: Repl
     return false;
   }
 
-  const price = parseFloat(priceMatch[1]);
+  const price = parseFloat(priceMatch![1]);
   const itemName = store.shiftPriceQueue(sender);
   if (!itemName) return false;
 
