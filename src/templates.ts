@@ -60,6 +60,7 @@ const replyTemplates = {
     notUnderstoodLine: (line: string) => `⚠️ Didn't understand: "${line}"`,
     trialExpired: (support: string) =>
       `Your trial period is over. Please contact support${support ? ` (${support})` : ""} to activate your account and continue using Kirana AI.`,
+    activated: "✅ Your Kirana AI account is now active! Thanks 🙏 Send any message to continue.",
   },
   telugu: {
     askShopName: "Kirana AI ki swaagatam! 👋\nMee shop peru cheppagalaru?",
@@ -122,6 +123,7 @@ const replyTemplates = {
     notUnderstoodLine: (line: string) => `⚠️ Artham kaaledu: "${line}"`,
     trialExpired: (support: string) =>
       `Mee trial samayam ayipoyindi. Kirana AI ni thirigi vaadadaaniki support${support ? ` (${support})` : ""} ni sampradinchandi.`,
+    activated: "✅ Mee Kirana AI account ippudu active! Thanks 🙏 Continue cheyadaniki edaina msg pettandi.",
   },
   hindi: {
     askShopName: "Kirana AI mein swagat! 👋\nApka shop ka naam kya hai?",
@@ -184,6 +186,7 @@ const replyTemplates = {
     notUnderstoodLine: (line: string) => `⚠️ Samajh nahi aaya: "${line}"`,
     trialExpired: (support: string) =>
       `Aapka trial period khatam ho gaya hai. Kirana AI ka upyog jari rakhne ke liye kripya support${support ? ` (${support})` : ""} se sampark karein.`,
+    activated: "✅ Aapka Kirana AI account ab active hai! Shukriya 🙏 Continue karne ke liye koi bhi message bhejein.",
   },
 };
 

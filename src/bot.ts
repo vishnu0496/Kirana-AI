@@ -41,6 +41,10 @@ export async function handleIncomingMessage(
       await sendText(sender, ok
         ? `✅ ${targetPhone} is now ${status}.`
         : `❌ No shop found for ${targetPhone}.`);
+      if (ok && status === "active") {
+        const target = store.getUser(targetPhone);
+        await sendText(targetPhone, getReply(target?.language || "english").activated);
+      }
       return;
     }
   }
