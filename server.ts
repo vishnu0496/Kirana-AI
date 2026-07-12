@@ -50,13 +50,14 @@ interface IncomingMessage {
   messageId: string;
   buttonId: string;
   documentId: string;
+  audioId: string;
 }
 
 function extractMessage(body: any): IncomingMessage | null {
   if (body?.object === "whatsapp_business_account") {
     const msg = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
     if (msg?.type === "text") {
-      return { sender: msg.from, text: msg.text?.body ?? "", messageId: msg.id ?? "", buttonId: "", documentId: "" };
+      return { sender: msg.from, text: msg.text?.body ?? "", messageId: msg.id ?? "", buttonId: "", documentId: "", audioId: "" };
     }
     if (msg?.type === "interactive" && msg.interactive?.type === "button_reply") {
       return {
@@ -65,21 +66,27 @@ function extractMessage(body: any): IncomingMessage | null {
         messageId: msg.id ?? "",
         buttonId: msg.interactive.button_reply?.id ?? "",
         documentId: "",
+        audioId: "",
       };
     }
     if (msg?.type === "document" && msg.document?.id) {
-      return { sender: msg.from, text: "", messageId: msg.id ?? "", buttonId: "", documentId: msg.document.id };
+      return { sender: msg.from, text: "", messageId: msg.id ?? "", buttonId: "", documentId: msg.document.id, audioId: "" };
+    }
+    // Voice notes and audio files.
+    if (msg?.type === "audio" && msg.audio?.id) {
+      return { sender: msg.from, text: "", messageId: msg.id ?? "", buttonId: "", documentId: "", audioId: msg.audio.id };
     }
     return null;
   }
-  // Simple test payload shape: { text, from, id?, buttonId?, documentId? }
-  if (body?.text || body?.documentId) {
+  // Simple test payload shape: { text, from, id?, buttonId?, documentId?, audioId? }
+  if (body?.text || body?.documentId || body?.audioId) {
     return {
       sender: body.from || "919999999999",
       text: body.text || "",
       messageId: body.id || body.messageId || "",
       buttonId: body.buttonId || "",
       documentId: body.documentId || "",
+      audioId: body.audioId || "",
     };
   }
   return null;
@@ -106,7 +113,7 @@ async function handleWebhookPost(req: http.IncomingMessage, res: http.ServerResp
   }
 
   const incoming = extractMessage(body);
-  if (!incoming || (!incoming.text && !incoming.documentId) || !incoming.sender) {
+  if (!incoming || (!incoming.text && !incoming.documentId && !incoming.audioId) || !incoming.sender) {
     res.writeHead(200);
     res.end();
     return;
@@ -119,14 +126,13 @@ async function handleWebhookPost(req: http.IncomingMessage, res: http.ServerResp
     return;
   }
 
-  console.log(
-    incoming.documentId
-      ? `[WA RECV] ${incoming.sender}: <document ${incoming.documentId}> (ID: ${incoming.messageId || "none"})`
-      : `[WA RECV] ${incoming.sender}: ${incoming.text} (ID: ${incoming.messageId || "none"})`
-  );
+  const kind = incoming.documentId ? `<document ${incoming.documentId}>`
+    : incoming.audioId ? `<voice ${incoming.audioId}>`
+    : incoming.text;
+  console.log(`[WA RECV] ${incoming.sender}: ${kind} (ID: ${incoming.messageId || "none"})`);
 
   try {
-    await handleIncomingMessage(incoming.sender, incoming.text, incoming.buttonId, incoming.documentId);
+    await handleIncomingMessage(incoming.sender, incoming.text, incoming.buttonId, incoming.documentId, incoming.audioId);
   } catch (err) {
     console.error("[HANDLER ERROR]", err instanceof Error ? err.stack : err);
   }

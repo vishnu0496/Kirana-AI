@@ -36,6 +36,7 @@ The agent *warms up* — velocity insights need ~a week of sales; until then it 
 * **Khata (udhaar) ledger**: track customer credit like the paper notebook — "ramesh udhaar 50", "ramesh ne 30 diya", "udhaar list" shows who owes what.
 * **Prices & reports**: asks for the price of new items, tracks revenue; daily, weekly ("hafte ka report") and monthly reports with best-seller highlights.
 * **Bulk CSV import**: send a CSV file (`item,quantity,unit,price`) as a WhatsApp document to load hundreds of SKUs at once instead of typing each one — for shops with large, varied inventory (multiple brands/variants/pack sizes per category).
+* **Voice notes (offline, no API)**: send a WhatsApp voice note ("10 soap sold, 2 ice cream sold, 4 kg rice added") and a local [faster-whisper](https://github.com/SYSTRAN/faster-whisper) model transcribes it (GPU-accelerated, CPU fallback) — the bot echoes "🎤 Heard: …" so you can verify, then records each item. No cloud, no key, no quota. Requires Python + `pip install faster-whisper` (see [Voice setup](#-voice-setup)).
 * **Undo & corrections**: "undo" / "galti ho gayi" reverses the last entry; "soap stock 25 karo" sets an absolute quantity; "remove chips" deletes an item.
 * **Low-stock alerts**: warns when an item drops below the threshold and lists items to reorder.
 * **Interactive buttons**: View Stock / Today's Report / Low Stock menus.
@@ -113,6 +114,25 @@ Point your WhatsApp webhook to `https://your-server-url/api/webhook/whatsapp` us
 docker build -t kirana-ai .
 docker run -p 8080:8080 --env-file .env -v kirana-data:/app/data kirana-ai
 ```
+
+## 🎙️ Voice setup
+
+Voice notes are transcribed **locally** by [faster-whisper](https://github.com/SYSTRAN/faster-whisper) — no API, key, or quota.
+
+```bash
+pip install faster-whisper
+# Optional GPU (NVIDIA): pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
+```
+
+Config (in `.env`):
+
+| Variable | Purpose |
+|---|---|
+| `WHISPER_MODEL` | `small` / `medium` / `large-v3` (default `large-v3`; smaller = faster, less accurate) |
+| `PYTHON` | Path to the Python that has `faster-whisper` (default `python`) |
+| `WHISPER_LANGUAGE` | Optional language hint, e.g. `te` / `hi` (usually auto-detected) |
+
+The server shells out to `transcribe.py`, which uses the GPU when available and falls back to CPU. First run downloads the model, then it's fully offline.
 
 ## 🧪 Tests & checks
 

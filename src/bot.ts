@@ -10,6 +10,7 @@ import type { Button } from "./whatsapp.ts";
 import * as store from "./store.ts";
 import { parseInventoryCsv } from "./bulkImport.ts";
 import * as agent from "./agent.ts";
+import { transcribeVoice, spokenToCommands } from "./voice.ts";
 
 const MENU_BUTTONS: Button[] = [
   { id: "menu_inventory", title: "📦 View Stock" },
@@ -48,13 +49,26 @@ async function handleBulkImport(sender: string, lang: Lang, mediaId: string): Pr
   await sendText(sender, reply.importSummary(rows.length, skipped));
 }
 
-/** Handle one incoming WhatsApp message (text, button tap, or document upload). */
+/** Handle one incoming WhatsApp message (text, button tap, document, or voice note). */
 export async function handleIncomingMessage(
   sender: string,
   messageText: string,
   buttonId: string = "",
-  documentId: string = ""
+  documentId: string = "",
+  audioId: string = ""
 ): Promise<void> {
+  // Voice note → transcribe locally to text, echo what was heard, then treat as typed.
+  if (audioId) {
+    const heardLang = store.getUser(sender)?.language || "english";
+    const transcript = await transcribeVoice(audioId, heardLang);
+    if (!transcript) {
+      await sendText(sender, getReply(heardLang).voiceFailed);
+      return;
+    }
+    await sendText(sender, getReply(heardLang).voiceHeard(transcript));
+    messageText = spokenToCommands(transcript); // split a spoken sentence into per-item commands
+  }
+
   // Admin commands: manual billing control, no payment gateway involved.
   if (config.adminPhone && sender === config.adminPhone) {
     const adminMatch = messageText.trim().match(/^(activate|deactivate)\s+(\d{10,15})$/i);
@@ -426,7 +440,14 @@ function applyStockUpdate(
   const result = store.updateStock(sender, parsed.item, parsed.quantity, isAdd ? "ADD" : "SELL", parsed.unit);
 
   if (!result.ok) {
-    results.push(reply.outOfStock(capitalize(parsed.item)));
+    // Selling an item that isn't stocked yet: the shopkeeper likely just forgot
+    // to add it. Establish it (qty 0) and ask for its price instead of rejecting.
+    store.updateStock(sender, parsed.item, 0, "ADD", parsed.unit);
+    results.push(reply.newItemOnSale(capitalize(parsed.item)));
+    if (store.getItemPrice(sender, parsed.item) === null) {
+      store.addToPriceQueue(sender, parsed.item);
+      return true;
+    }
     return false;
   }
 

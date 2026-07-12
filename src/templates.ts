@@ -19,6 +19,8 @@ const replyTemplates = {
       `⚠️ Low stock: ${item} only ${remaining} ${unit} left — reorder soon!`.replace(/\s+/g, " ").trim(),
     outOfStock: (item: string) =>
       `❌ ${item} is not in your stock. Add it first (e.g. 'add 10 ${item}').`,
+    newItemOnSale: (item: string) =>
+      `🆕 ${item} is new — I've added it. Tell me your stock (e.g. '${item.toLowerCase()} stock 20'), and its price below 👇`,
     inventoryHeader: (name: string) => `${name}, here is your inventory:`,
     emptyStock: "No stock yet 📭 Try: 'add 10 soaps'",
     reportHeader: (name: string) => `${name}, here is today's report:`,
@@ -94,6 +96,8 @@ const replyTemplates = {
     demandWeekendLine: (item: string, perDay: string) => `• ${item} (~${perDay}/day)`,
     festivalNudge: (name: string, days: number) =>
       `🎉 ${name} in ${days} day${days === 1 ? "" : "s"} — stock up on festival items!`,
+    voiceHeard: (text: string) => `🎤 Heard: "${text}"`,
+    voiceFailed: "🎤 Sorry, couldn't catch that voice note — please say it again or type it.",
   },
   telugu: {
     askShopName: "Kirana AI ki swaagatam! 👋\nMee shop peru cheppandi?",
@@ -115,6 +119,8 @@ const replyTemplates = {
       `⚠️ Stock takkuvaga undi: ${item} inka ${remaining} ${unit} mathrame undi — twaraga order cheyandi!`.replace(/\s+/g, " ").trim(),
     outOfStock: (item: string) =>
       `❌ ${item} mee stock lo ledu. Mundu add cheyandi (e.g. 'add 10 ${item}').`,
+    newItemOnSale: (item: string) =>
+      `🆕 ${item} kotha item — add chesa. Mee daggara enni unnayo cheppandi (e.g. '${item.toLowerCase()} stock 20'), price kinda cheppandi 👇`,
     inventoryHeader: (name: string) => `${name} anna, mee stock idi:`,
     emptyStock: "Stock inka emi ledu 📭 Try: 'add 10 soaps'",
     reportHeader: (name: string) => `${name} anna, ee roju report:`,
@@ -190,6 +196,8 @@ const replyTemplates = {
     demandWeekendLine: (item: string, perDay: string) => `• ${item} (rojuki ~${perDay})`,
     festivalNudge: (name: string, days: number) =>
       `🎉 ${name} inko ${days} roju${days === 1 ? "" : "lu"} lo — festival items stock pettandi!`,
+    voiceHeard: (text: string) => `🎤 Nenu vinnadi: "${text}"`,
+    voiceFailed: "🎤 Sorry, aa voice note ardham kaledu — malli cheppandi leda type cheyandi.",
   },
   hindi: {
     askShopName: "Kirana AI mein swagat! 👋\nApka shop ka naam kya hai?",
@@ -211,6 +219,8 @@ const replyTemplates = {
       `⚠️ Stock kam: ${item} sirf ${remaining} ${unit} bacha — jaldi order karo!`.replace(/\s+/g, " ").trim(),
     outOfStock: (item: string) =>
       `❌ ${item} aapke stock mein nahi hai. Pehle add karo (e.g. 'add 10 ${item}').`,
+    newItemOnSale: (item: string) =>
+      `🆕 ${item} naya hai — add kar diya. Apna stock batao (e.g. '${item.toLowerCase()} stock 20'), aur price niche batao 👇`,
     inventoryHeader: (name: string) => `${name} bhai, aapki inventory:`,
     emptyStock: "Abhi koi stock nahi 📭 Try: 'add 10 soaps'",
     reportHeader: (name: string) => `${name} bhai, aaj ki report:`,
@@ -286,6 +296,8 @@ const replyTemplates = {
     demandWeekendLine: (item: string, perDay: string) => `• ${item} (roz ~${perDay})`,
     festivalNudge: (name: string, days: number) =>
       `🎉 ${name} ${days} din mein — festival items stock karo!`,
+    voiceHeard: (text: string) => `🎤 Maine suna: "${text}"`,
+    voiceFailed: "🎤 Sorry, wo voice note samajh nahi aaya — dobara boliye ya type kijiye.",
   },
 };
 

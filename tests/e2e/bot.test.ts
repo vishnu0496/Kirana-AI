@@ -179,13 +179,17 @@ test("udhaar reminders command replies cleanly when nothing is overdue", async (
   assert.match(reply, /✅/);
 });
 
-test("selling an unknown item does not create it", async () => {
+test("selling an unstocked item establishes it and asks for a price", async () => {
   harness.mock.clear();
-  const [replyText] = await harness.sendUserMessage(USER, "sold 5 unicorn dust");
-  assert.match(replyText, /not in your stock/i);
+  // Selling something never added: the shopkeeper likely forgot to add it,
+  // so we create it and ask the price rather than rejecting.
+  const replies = await harness.sendUserMessage(USER, "sold 5 unicorn dust", 2);
+  assert.match(replies[0], /new/i);            // "🆕 Unicorn dust is new..."
+  assert.match(replies[1], /price of Unicorn/i); // asks the price
 
-  const [inv] = await harness.sendUserMessage(USER, "show inventory");
-  assert.doesNotMatch(inv, /unicorn/i);
+  // The item now exists, and a price answer is accepted.
+  const [priceConfirmed] = await harness.sendUserMessage(USER, "15");
+  assert.match(priceConfirmed, /Unicorn dust price saved: ₹15/);
 });
 
 test("low stock warning after selling below threshold", async () => {

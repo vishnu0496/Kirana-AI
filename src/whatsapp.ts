@@ -75,8 +75,8 @@ export async function sendText(to: string, text: string): Promise<void> {
   }
 }
 
-/** Downloads a WhatsApp media attachment (two-step Cloud API flow) and returns it as UTF-8 text. */
-export async function downloadMedia(mediaId: string): Promise<string | null> {
+/** Downloads a WhatsApp media attachment (two-step Cloud API flow) as raw bytes. */
+export async function downloadMediaBinary(mediaId: string): Promise<Buffer | null> {
   if (!config.whatsappToken) return null;
   try {
     const metaRes = await fetch(`${config.whatsappBaseUrl}/${config.whatsappApiVersion}/${mediaId}`, {
@@ -89,14 +89,20 @@ export async function downloadMedia(mediaId: string): Promise<string | null> {
 
     const fileRes = await fetch(meta.url, {
       headers: { Authorization: `Bearer ${config.whatsappToken}` },
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(20_000),
     });
     if (!fileRes.ok) return null;
-    return Buffer.from(await fileRes.arrayBuffer()).toString("utf-8");
+    return Buffer.from(await fileRes.arrayBuffer());
   } catch (err) {
     console.error("[WA MEDIA ERROR]", err instanceof Error ? err.message : err);
     return null;
   }
+}
+
+/** Downloads a WhatsApp media attachment and returns it as UTF-8 text (e.g. a CSV). */
+export async function downloadMedia(mediaId: string): Promise<string | null> {
+  const bytes = await downloadMediaBinary(mediaId);
+  return bytes ? bytes.toString("utf-8") : null;
 }
 
 export async function sendButtons(to: string, bodyText: string, buttons: Button[]): Promise<void> {
