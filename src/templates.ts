@@ -59,7 +59,7 @@ const replyTemplates = {
     greeting: (name: string) =>
       `Hey ${name}! 👋 How can I help?\nTry: 'add 10 soaps' or 'show inventory'`,
     help:
-      "Here's what I can do 🤖\n• add 10 soaps — add stock\n• sold 5 chips — record a sale\n• show inventory — full stock list\n• low stock — items to reorder\n• today report / week report — sales\n• sugar price 45 — set a price\n• ramesh udhaar 50 — khata credit\n• ramesh paid 30 — khata payment\n• udhaar list — who owes you\n• day summary — today's full digest\n• summary 9pm — get it daily at 9pm\n• undo — cancel last entry",
+      "Here's what I can do 🤖\n• add 10 soaps — add stock\n• sold 5 chips — record a sale\n• show inventory — full stock list\n• low stock — items to reorder\n• today report / week report — sales\n• sugar price 45 — set a price\n• ramesh udhaar 50 — khata credit\n• ramesh paid 30 — khata payment\n• udhaar list — who owes you\n• day summary — today's full digest\n• summary 9pm — get it daily at 9pm\n• order list — what to reorder now\n• undo — cancel last entry",
     notUnderstood: "Didn't understand 🙏 Try: 'add 5 chips' or 'show inventory'",
     notUnderstoodLine: (line: string) => `⚠️ Didn't understand: "${line}"`,
     trialExpired: (support: string) =>
@@ -69,6 +69,13 @@ const replyTemplates = {
     summarySet: (time: string) => `✅ Daily summary set for ${time} — you'll get it every evening 🌙\n(Type 'day summary' anytime to see it now.)`,
     summaryReorderHeader: "🛒 Reorder soon:",
     summaryUdhaarDue: (total: number) => `📒 Udhaar to collect: ₹${total}`,
+    reorderHeader: "🛒 Order before you run out:",
+    reorderLine: (item: string, perDay: string, left: number, days: string, orderQty: number, unit: string) => {
+      const u = unit ? " " + unit : "";
+      return `🔴 ${item}: ~${perDay}/day, ${left}${u} left (~${days}d) → order ~${orderQty}${u}`;
+    },
+    reorderNone: "✅ Stock levels look healthy — nothing urgent to reorder.",
+    agentLearning: "📊 Still learning your shop — a few more days of sales and I'll start predicting reorders for you.",
   },
   telugu: {
     askShopName: "Kirana AI ki swaagatam! 👋\nMee shop peru cheppandi?",
@@ -130,7 +137,7 @@ const replyTemplates = {
     greeting: (name: string) =>
       `Ela unnaru ${name} anna! 👋 Em kavali?\nTry: 'add 10 soaps' or 'show inventory'`,
     help:
-      "Nenu ivi cheyagalanu 🤖\n• add 10 soaps — stock add\n• sold 5 chips — ammakam record\n• show inventory — stock chudandi\n• low stock — order cheyalsina items\n• today report / vaaram report — ammakalu\n• sugar price 45 — price set\n• ramesh appu 50 — khata lo rayadam\n• ramesh 30 katti — appu teerchadam\n• appu list — evaru entha baaki\n• day summary — ee roju full lekka\n• summary 9pm — roju 9pm ki summary\n• undo — last entry cancel",
+      "Nenu ivi cheyagalanu 🤖\n• add 10 soaps — stock add\n• sold 5 chips — ammakam record\n• show inventory — stock chudandi\n• low stock — order cheyalsina items\n• today report / vaaram report — ammakalu\n• sugar price 45 — price set\n• ramesh appu 50 — khata lo rayadam\n• ramesh 30 katti — appu teerchadam\n• appu list — evaru entha baaki\n• day summary — ee roju full lekka\n• summary 9pm — roju 9pm ki summary\n• order list — em order cheyalo\n• undo — last entry cancel",
     notUnderstood: "Artham kaledu 🙏 Try: 'add 5 chips' or 'show inventory'",
     notUnderstoodLine: (line: string) => `⚠️ Idi artham kaledu: "${line}"`,
     trialExpired: (support: string) =>
@@ -140,6 +147,13 @@ const replyTemplates = {
     summarySet: (time: string) => `✅ Roju summary ${time} ki set chesanu — prati roju saayantram vastundi 🌙\n('day summary' ani type chesthe ippude chudocchu.)`,
     summaryReorderHeader: "🛒 Twaraga order cheyandi:",
     summaryUdhaarDue: (total: number) => `📒 Vasoolu cheyalsina appu: ₹${total}`,
+    reorderHeader: "🛒 Aipoye mundu order cheyandi:",
+    reorderLine: (item: string, perDay: string, left: number, days: string, orderQty: number, unit: string) => {
+      const u = unit ? " " + unit : "";
+      return `🔴 ${item}: rojuki ~${perDay}, ${left}${u} unnayi (~${days}d) → ~${orderQty}${u} order cheyandi`;
+    },
+    reorderNone: "✅ Stock baaga undi — ippudu urgent ga em order cheyakkarledu.",
+    agentLearning: "📊 Mee shop ni ippudu nerchukuntunna — inko konni rojula sales tarvata reorders predict cheyadam start chesta.",
   },
   hindi: {
     askShopName: "Kirana AI mein swagat! 👋\nApka shop ka naam kya hai?",
@@ -201,7 +215,7 @@ const replyTemplates = {
     greeting: (name: string) =>
       `Kya haal hai ${name} bhai! 👋 Kya help chahiye?\nTry: 'add 10 soaps' ya 'show inventory'`,
     help:
-      "Main ye kar sakta hoon 🤖\n• add 10 soaps — stock add\n• sold 5 chips — sale record\n• show inventory — stock list\n• low stock — order karne wale items\n• today report / hafte ka report — bikri\n• sugar price 45 — price set\n• ramesh udhaar 50 — khata mein likho\n• ramesh ne 30 diya — udhaar wapas\n• udhaar list — kaun kitna dega\n• day summary — aaj ka pura hisab\n• summary 9pm — rozana 9pm pe summary\n• undo — last entry cancel",
+      "Main ye kar sakta hoon 🤖\n• add 10 soaps — stock add\n• sold 5 chips — sale record\n• show inventory — stock list\n• low stock — order karne wale items\n• today report / hafte ka report — bikri\n• sugar price 45 — price set\n• ramesh udhaar 50 — khata mein likho\n• ramesh ne 30 diya — udhaar wapas\n• udhaar list — kaun kitna dega\n• day summary — aaj ka pura hisab\n• summary 9pm — rozana 9pm pe summary\n• order list — kya reorder karna hai\n• undo — last entry cancel",
     notUnderstood: "Samajh nahi aaya 🙏 Try: 'add 5 chips' ya 'show inventory'",
     notUnderstoodLine: (line: string) => `⚠️ Samajh nahi aaya: "${line}"`,
     trialExpired: (support: string) =>
@@ -211,6 +225,13 @@ const replyTemplates = {
     summarySet: (time: string) => `✅ Rozana summary ${time} pe set kar di — har shaam milega 🌙\n('day summary' type karke abhi bhi dekh sakte ho.)`,
     summaryReorderHeader: "🛒 Jaldi order karo:",
     summaryUdhaarDue: (total: number) => `📒 Udhaar vasooli baaki: ₹${total}`,
+    reorderHeader: "🛒 Khatam hone se pehle order karo:",
+    reorderLine: (item: string, perDay: string, left: number, days: string, orderQty: number, unit: string) => {
+      const u = unit ? " " + unit : "";
+      return `🔴 ${item}: roz ~${perDay}, ${left}${u} bacha (~${days}d) → ~${orderQty}${u} order karo`;
+    },
+    reorderNone: "✅ Stock theek hai — abhi urgent kuch order karne ki zaroorat nahi.",
+    agentLearning: "📊 Aapki dukaan ko samajh raha hoon — kuch aur din ki sales ke baad reorders predict karna shuru kar dunga.",
   },
 };
 

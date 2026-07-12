@@ -323,6 +323,11 @@ export function getTransactionsSince(phone: string, days: number): Transaction[]
   return shop.logs.filter((t) => new Date(t.timestamp).getTime() >= cutoff);
 }
 
+/** All retained transactions (up to MAX_LOG_DAYS). The agent filters by its own injectable clock. */
+export function getLogs(phone: string): Transaction[] {
+  return data.shops[phone]?.logs ?? [];
+}
+
 /** Reverse and remove the most recent stock transaction. */
 export function undoLastTransaction(phone: string): Transaction | null {
   const shop = data.shops[phone];

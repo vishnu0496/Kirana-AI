@@ -9,6 +9,7 @@ import { sendText, sendButtons, downloadMedia } from "./whatsapp.ts";
 import type { Button } from "./whatsapp.ts";
 import * as store from "./store.ts";
 import { parseInventoryCsv } from "./bulkImport.ts";
+import * as agent from "./agent.ts";
 
 const MENU_BUTTONS: Button[] = [
   { id: "menu_inventory", title: "📦 View Stock" },
@@ -131,6 +132,15 @@ export async function handleIncomingMessage(
     } else {
       await sendText(sender, buildDailySummary(sender, ownerName, reply));
     }
+    return;
+  }
+
+  // Smart reorder / "what to order" — the agent's velocity-based order list.
+  if (!buttonId && (/\breorder\b|order\s*list/i.test(messageText) || /em\s*order|kya\s*order/i.test(messageText))) {
+    const section = reorderSection(sender, reply);
+    await sendText(sender, section.length
+      ? section.join("\n")
+      : (agent.isWarmedUp(sender) ? reply.reorderNone : reply.agentLearning));
     return;
   }
 
@@ -418,6 +428,14 @@ function applyStockUpdate(
 
   if (!isAdd && result.newQty < config.lowStockThreshold) {
     results.push(reply.lowStock(capitalize(result.finalItem), result.newQty, result.finalUnit));
+    // Piggyback the agent's reorder hint onto a message the shopkeeper already gets.
+    const perDay = agent.itemVelocity(sender, result.finalItem);
+    if (perDay > 0) {
+      const orderQty = Math.max(1, Math.ceil(perDay * config.agentReorderHorizonDays - result.newQty));
+      const pd = perDay >= 1 ? String(Math.round(perDay)) : perDay.toFixed(1);
+      const days = (result.newQty / perDay).toFixed(1);
+      results.push(reply.reorderLine(capitalize(result.finalItem), pd, result.newQty, days, orderQty, result.finalUnit));
+    }
   }
 
   if (isAdd && store.getItemPrice(sender, result.finalItem) === null) {
@@ -466,6 +484,18 @@ function buildReport(sender: string, ownerName: string, reply: Reply, days?: num
   return lines.join("\n");
 }
 
+/** Velocity-based reorder lines (header + items), or [] when nothing is urgent. */
+function reorderSection(sender: string, reply: Reply, now: Date = new Date()): string[] {
+  const suggestions = agent.reorderSuggestions(sender, now);
+  if (suggestions.length === 0) return [];
+  const lines = [reply.reorderHeader];
+  for (const s of suggestions) {
+    const perDay = s.perDay >= 1 ? String(Math.round(s.perDay)) : s.perDay.toFixed(1);
+    lines.push(reply.reorderLine(capitalize(s.item), perDay, s.left, s.daysCover.toFixed(1), s.orderQty, s.unit));
+  }
+  return lines;
+}
+
 /** End-of-day digest: today's sales + revenue, items to reorder, and udhaar owed. */
 function buildDailySummary(sender: string, ownerName: string, reply: Reply): string {
   const entries = aggregateSells(sender, store.getTodayTransactions(sender));
@@ -479,10 +509,16 @@ function buildDailySummary(sender: string, ownerName: string, reply: Reply): str
   const totalRevenue = entries.reduce((sum, { revenue }) => sum + revenue, 0);
   lines.push(reply.reportRevenue(totalRevenue));
 
-  const lowItems = store.getInventory(sender).filter((i) => i.quantity < config.lowStockThreshold);
-  if (lowItems.length > 0) {
-    lines.push("", reply.summaryReorderHeader);
-    for (const i of lowItems) lines.push(reply.lowStockItem(capitalize(i.name), i.quantity, i.unit));
+  // Smart velocity-based reorder; fall back to the raw low-stock threshold before there's data.
+  const reorder = reorderSection(sender, reply);
+  if (reorder.length > 0) {
+    lines.push("", ...reorder);
+  } else {
+    const lowItems = store.getInventory(sender).filter((i) => i.quantity < config.lowStockThreshold);
+    if (lowItems.length > 0) {
+      lines.push("", reply.summaryReorderHeader);
+      for (const i of lowItems) lines.push(reply.lowStockItem(capitalize(i.name), i.quantity, i.unit));
+    }
   }
 
   const udhaarTotal = store.getKhata(sender).reduce((sum, k) => sum + Math.max(0, k.balance), 0);

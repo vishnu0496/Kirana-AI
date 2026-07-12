@@ -50,6 +50,14 @@ export const config = {
   supportContact: process.env.SUPPORT_CONTACT || "",
 
   lowStockThreshold: Number(process.env.LOW_STOCK_THRESHOLD) || 5,
+
+  // Agent (predictive analytics) — all local, no API.
+  agentVelocityDays: Number(process.env.AGENT_VELOCITY_DAYS) || 14, // trailing window for sales velocity
+  agentLeadTimeDays: Number(process.env.AGENT_LEAD_TIME_DAYS) || 3, // reorder when stock lasts <= this
+  agentReorderHorizonDays: Number(process.env.AGENT_REORDER_HORIZON_DAYS) || 7, // order enough to cover this
+  agentDeadStockDays: Number(process.env.AGENT_DEAD_STOCK_DAYS) || 21, // no sale in this many days = dead stock
+  agentKhataOverdueDays: Number(process.env.AGENT_KHATA_OVERDUE_DAYS) || 15, // udhaar older than this = overdue
+  agentWarmupDays: Number(process.env.AGENT_WARMUP_DAYS) || 7, // need this much history before velocity insights
 };
 
 export type Config = typeof config;

@@ -140,6 +140,23 @@ test("day summary on demand, and setting a summary time", async () => {
   assert.match(summary, /Reorder soon/i); // soap now at 2 (<5)
 });
 
+test("order list recommends reordering a fast-mover about to run out", async () => {
+  const U = "919876543234";
+  harness.mock.clear();
+  await harness.sendUserMessage(U, "hello");
+  await harness.sendUserMessage(U, "Fast Shop");
+  await harness.sendUserMessage(U, "Ravi");
+
+  await harness.sendUserMessage(U, "add 30 soap", 2); // add + price question
+  await harness.sendUserMessage(U, "10");
+  await harness.sendUserMessage(U, "sold 25 soap"); // 5 left, sold 25 today → high velocity
+
+  const [reply] = await harness.sendUserMessage(U, "order list");
+  assert.match(reply, /Order before you run out/i);
+  assert.match(reply, /Soap/);
+  assert.match(reply, /order ~/);
+});
+
 test("selling an unknown item does not create it", async () => {
   harness.mock.clear();
   const [replyText] = await harness.sendUserMessage(USER, "sold 5 unicorn dust");
