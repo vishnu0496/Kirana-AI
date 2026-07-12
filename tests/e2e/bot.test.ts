@@ -167,6 +167,18 @@ test("dead stock command replies cleanly when nothing is stale", async () => {
   assert.match(reply, /No dead stock/i);
 });
 
+test("udhaar reminders command replies cleanly when nothing is overdue", async () => {
+  const U = "919876543236";
+  harness.mock.clear();
+  await harness.sendUserMessage(U, "hello");
+  await harness.sendUserMessage(U, "Credit Shop");
+  await harness.sendUserMessage(U, "Anu");
+  await harness.sendUserMessage(U, "ramesh udhaar 100"); // fresh credit, not yet overdue
+  const [reply] = await harness.sendUserMessage(U, "udhaar reminders");
+  assert.match(reply, /overdue/i); // "no overdue" — language may have switched, all variants keep the word
+  assert.match(reply, /✅/);
+});
+
 test("selling an unknown item does not create it", async () => {
   harness.mock.clear();
   const [replyText] = await harness.sendUserMessage(USER, "sold 5 unicorn dust");

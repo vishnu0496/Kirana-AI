@@ -78,3 +78,20 @@ test("deadStock does not flag freshly-added items (too new to judge)", () => {
   store.logTransaction(phone, "ADD", "milk", 5, "", 10);
   assert.strictEqual(agent.deadStock(phone, new Date()).length, 0);
 });
+
+test("overdueKhata flags stale credit, ranked by amount", () => {
+  const phone = "919000001007";
+  store.saveUser(phone, { shopName: "S", ownerName: "A", language: "english" });
+  store.updateKhata(phone, "ramesh", 500);
+  store.updateKhata(phone, "suresh", 200);
+
+  // 20 days later, both are overdue (threshold 15).
+  const overdue = agent.overdueKhata(phone, new Date(Date.now() + 20 * DAY));
+  assert.strictEqual(overdue.length, 2);
+  assert.strictEqual(overdue[0].name, "ramesh"); // ₹500 first
+  assert.strictEqual(overdue[0].balance, 500);
+  assert.ok(overdue[0].daysOverdue >= 19);
+
+  // Right now, nothing is overdue yet.
+  assert.strictEqual(agent.overdueKhata(phone, new Date()).length, 0);
+});

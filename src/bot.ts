@@ -151,6 +151,13 @@ export async function handleIncomingMessage(
     return;
   }
 
+  // Khata collection — overdue credit with ready-to-forward reminder drafts.
+  if (!buttonId && /udhaar\s*remind|collection|reminders?\b/i.test(messageText)) {
+    const section = collectionSection(sender, reply);
+    await sendText(sender, section.length ? section.join("\n") : reply.collectionNone);
+    return;
+  }
+
   // Button taps map directly to an action; free text goes through the parser.
   const lines = buttonId
     ? [messageText || buttonId]
@@ -514,6 +521,22 @@ function deadStockSection(sender: string, reply: Reply, now: Date = new Date()):
   return lines;
 }
 
+/** Overdue-khata reminders with a ready-to-forward draft per customer, or [] if all paid. */
+function collectionSection(sender: string, reply: Reply, now: Date = new Date()): string[] {
+  const overdue = agent.overdueKhata(sender, now);
+  if (overdue.length === 0) return [];
+  const lines = [reply.collectionHeader];
+  for (const o of overdue) {
+    lines.push(
+      "",
+      reply.collectionEntry(capitalize(o.name), o.balance, o.daysOverdue),
+      reply.collectionForwardLabel,
+      reply.collectionDraft(capitalize(o.name), o.balance)
+    );
+  }
+  return lines;
+}
+
 /** End-of-day digest: today's sales + revenue, items to reorder, and udhaar owed. */
 function buildDailySummary(sender: string, ownerName: string, reply: Reply): string {
   const entries = aggregateSells(sender, store.getTodayTransactions(sender));
@@ -540,7 +563,11 @@ function buildDailySummary(sender: string, ownerName: string, reply: Reply): str
   }
 
   const udhaarTotal = store.getKhata(sender).reduce((sum, k) => sum + Math.max(0, k.balance), 0);
-  if (udhaarTotal > 0) lines.push("", reply.summaryUdhaarDue(udhaarTotal));
+  if (udhaarTotal > 0) {
+    lines.push("", reply.summaryUdhaarDue(udhaarTotal));
+    const overdue = agent.overdueKhata(sender);
+    if (overdue.length > 0) lines.push(reply.collectionBriefHint(overdue.length));
+  }
 
   const dead = deadStockSection(sender, reply);
   if (dead.length > 0) lines.push("", ...dead);

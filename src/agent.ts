@@ -116,3 +116,22 @@ export function deadStock(sender: string, now: Date = new Date()): DeadStockItem
   }
   return out.sort((a, b) => b.capital - a.capital);
 }
+
+export interface OverdueAccount {
+  name: string;
+  balance: number;
+  daysOverdue: number;
+}
+
+/** Khata accounts owing money with no activity for `agentKhataOverdueDays`, biggest first. */
+export function overdueKhata(sender: string, now: Date = new Date()): OverdueAccount[] {
+  const overdueMs = config.agentKhataOverdueDays * DAY_MS;
+  const out: OverdueAccount[] = [];
+  for (const k of store.getKhata(sender)) {
+    if (k.balance <= 0) continue;
+    const sinceMs = now.getTime() - new Date(k.updatedAt).getTime();
+    if (sinceMs < overdueMs) continue;
+    out.push({ name: k.name, balance: k.balance, daysOverdue: Math.floor(sinceMs / DAY_MS) });
+  }
+  return out.sort((a, b) => b.balance - a.balance);
+}
