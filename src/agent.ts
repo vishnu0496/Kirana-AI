@@ -135,3 +135,63 @@ export function overdueKhata(sender: string, now: Date = new Date()): OverdueAcc
   }
   return out.sort((a, b) => b.balance - a.balance);
 }
+
+/** IST day of week for an instant (0 = Sunday … 6 = Saturday). */
+function istDayOfWeek(d: Date): number {
+  return new Date(d.getTime() + 5.5 * 3600_000).getUTCDay();
+}
+
+/** Is the day after `now` a weekend (busier for most kiranas)? */
+export function isTomorrowWeekend(now: Date = new Date()): boolean {
+  const day = istDayOfWeek(new Date(now.getTime() + DAY_MS));
+  return day === 0 || day === 6;
+}
+
+export interface Mover {
+  item: string;
+  unit: string;
+  perDay: number;
+}
+
+/** Top fast-movers by velocity — what's worth stocking up for a busy day. */
+export function topMovers(sender: string, now: Date = new Date(), limit = 3): Mover[] {
+  return store
+    .getInventory(sender)
+    .map((i) => ({ item: i.name, unit: i.unit, perDay: itemVelocity(sender, i.name, config.agentVelocityDays, now) }))
+    .filter((m) => m.perDay > 0)
+    .sort((a, b) => b.perDay - a.perDay)
+    .slice(0, limit);
+}
+
+// Fixed-date festivals only (Gregorian/solar) — reliable year over year. Lunar
+// festivals (Diwali, Holi, Eid…) shift yearly and would need a proper calendar
+// source, so they are intentionally omitted rather than risk wrong dates.
+const FIXED_FESTIVALS: { name: string; month: number; day: number }[] = [
+  { name: "New Year", month: 1, day: 1 },
+  { name: "Sankranti / Pongal", month: 1, day: 14 },
+  { name: "Republic Day", month: 1, day: 26 },
+  { name: "Independence Day", month: 8, day: 15 },
+  { name: "Gandhi Jayanti", month: 10, day: 2 },
+  { name: "Christmas", month: 12, day: 25 },
+];
+
+export interface FestivalHeadsUp {
+  name: string;
+  daysAway: number;
+}
+
+/** The next fixed-date festival within `withinDays`, or null. */
+export function upcomingFestival(now: Date = new Date(), withinDays = 7): FestivalHeadsUp | null {
+  const year = new Date(now.getTime() + 5.5 * 3600_000).getUTCFullYear();
+  let best: FestivalHeadsUp | null = null;
+  for (const f of FIXED_FESTIVALS) {
+    for (const y of [year, year + 1]) {
+      const festMs = Date.UTC(y, f.month - 1, f.day) - 5.5 * 3600_000; // IST midnight
+      const daysAway = Math.ceil((festMs - now.getTime()) / DAY_MS);
+      if (daysAway >= 0 && daysAway <= withinDays && (!best || daysAway < best.daysAway)) {
+        best = { name: f.name, daysAway };
+      }
+    }
+  }
+  return best;
+}

@@ -90,6 +90,10 @@ const replyTemplates = {
     collectionNone: "✅ No overdue udhaar — everyone's paid up!",
     collectionBriefHint: (count: number) =>
       `📒 ${count} customer${count === 1 ? "" : "s"} overdue — type 'udhaar reminders' for ready-to-forward messages.`,
+    demandWeekendHeader: "📈 Weekend tomorrow — stock up your bestsellers:",
+    demandWeekendLine: (item: string, perDay: string) => `• ${item} (~${perDay}/day)`,
+    festivalNudge: (name: string, days: number) =>
+      `🎉 ${name} in ${days} day${days === 1 ? "" : "s"} — stock up on festival items!`,
   },
   telugu: {
     askShopName: "Kirana AI ki swaagatam! 👋\nMee shop peru cheppandi?",
@@ -182,6 +186,10 @@ const replyTemplates = {
     collectionNone: "✅ Overdue appu emi ledu — andaru kattaru!",
     collectionBriefHint: (count: number) =>
       `📒 ${count} mandi customers overdue — 'udhaar reminders' ani type cheste ready messages vasthayi.`,
+    demandWeekendHeader: "📈 Repu weekend — mee bestsellers stock pettandi:",
+    demandWeekendLine: (item: string, perDay: string) => `• ${item} (rojuki ~${perDay})`,
+    festivalNudge: (name: string, days: number) =>
+      `🎉 ${name} inko ${days} roju${days === 1 ? "" : "lu"} lo — festival items stock pettandi!`,
   },
   hindi: {
     askShopName: "Kirana AI mein swagat! 👋\nApka shop ka naam kya hai?",
@@ -274,6 +282,10 @@ const replyTemplates = {
     collectionNone: "✅ Koi overdue udhaar nahi — sab settle hai!",
     collectionBriefHint: (count: number) =>
       `📒 ${count} customer${count === 1 ? "" : "s"} overdue — 'udhaar reminders' type karo ready messages ke liye.`,
+    demandWeekendHeader: "📈 Kal weekend — apne bestsellers stock karo:",
+    demandWeekendLine: (item: string, perDay: string) => `• ${item} (roz ~${perDay})`,
+    festivalNudge: (name: string, days: number) =>
+      `🎉 ${name} ${days} din mein — festival items stock karo!`,
   },
 };
 

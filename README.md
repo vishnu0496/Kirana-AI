@@ -15,6 +15,19 @@ KiranaAI is an inventory management assistant for small shop owners (kirana shop
 3. **Local JSON store**: inventory, transaction logs, and shop profiles are persisted atomically to `data/store.json` on your own machine.
 4. **Instant reply**: confirmation with updated stock totals, in the user's language, with quick-action buttons.
 
+## 🤖 The Agent — your shop's business brain
+
+Beyond commands, KiranaAI runs **local predictive analytics** over your own 90-day
+transaction history — no LLM, no API, no cost. Every insight is an **action or a rupee**,
+delivered as one calm **daily briefing** (`summary 9pm` to schedule it) plus on-demand commands:
+
+* **Smart reorder** (`order list`): sales-velocity forecasting — `🔴 Lux: ~5/day, 8 left (~1.5d) → order ~40`. Attacks the #1 kirana killer: stockouts of fast-movers.
+* **Dead-stock / capital alert** (`dead stock`): items not selling, ranked by rupees tied up — `🟡 Detergent: no sale in 24d, ₹1,350 stuck → discount or return`.
+* **Khata collection** (`udhaar reminders`): overdue credit + a ready-to-forward reminder drafted in the customer's language.
+* **Demand nudges**: weekend "stock up your bestsellers" + fixed-date festival heads-ups (Sankranti, Christmas, …), folded into the briefing.
+
+The agent *warms up* — velocity insights need ~a week of sales; until then it says so rather than guessing. It's honest AI: a trained classifier understands the shopkeeper, and statistics on real data drive the recommendations.
+
 ## 🚀 Features
 
 * **Multilingual**: understands and replies in Hindi, Telugu, and English — general phrasing, not fixed keywords ("aaj ki kamai batao", "ivala ammakalu enta", "kya khatam hone wala hai" all work).

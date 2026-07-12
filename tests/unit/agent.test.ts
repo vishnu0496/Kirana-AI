@@ -95,3 +95,34 @@ test("overdueKhata flags stale credit, ranked by amount", () => {
   // Right now, nothing is overdue yet.
   assert.strictEqual(agent.overdueKhata(phone, new Date()).length, 0);
 });
+
+test("isTomorrowWeekend detects Fri→Sat and Sat→Sun", () => {
+  // 2026-07-17 is a Friday (IST). Tomorrow = Saturday → true.
+  assert.strictEqual(agent.isTomorrowWeekend(new Date("2026-07-17T06:00:00Z")), true);
+  // 2026-07-18 Saturday → tomorrow Sunday → true.
+  assert.strictEqual(agent.isTomorrowWeekend(new Date("2026-07-18T06:00:00Z")), true);
+  // 2026-07-15 Wednesday → tomorrow Thursday → false.
+  assert.strictEqual(agent.isTomorrowWeekend(new Date("2026-07-15T06:00:00Z")), false);
+});
+
+test("topMovers ranks items by sales velocity", () => {
+  const phone = "919000001008";
+  store.saveUser(phone, { shopName: "S", ownerName: "A", language: "english" });
+  store.updateStock(phone, "milk", 50, "ADD");
+  store.updateStock(phone, "candles", 50, "ADD");
+  store.logTransaction(phone, "SELL", "milk", 70, "", 30);   // fast
+  store.logTransaction(phone, "SELL", "candles", 7, "", 20);  // slow
+  const movers = agent.topMovers(phone, new Date());
+  assert.strictEqual(movers[0].item, "milk");
+  assert.ok(movers[0].perDay > movers[1].perDay);
+});
+
+test("upcomingFestival finds a fixed-date festival within the window", () => {
+  // 2027-01-10 → Sankranti (Jan 14) is 4 days away.
+  const fest = agent.upcomingFestival(new Date("2027-01-10T06:00:00Z"), 7);
+  assert.ok(fest);
+  assert.match(fest.name, /Sankranti/);
+  assert.ok(fest.daysAway >= 3 && fest.daysAway <= 5);
+  // Mid-year with nothing within a week → null.
+  assert.strictEqual(agent.upcomingFestival(new Date("2026-07-06T06:00:00Z"), 7), null);
+});

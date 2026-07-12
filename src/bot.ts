@@ -572,7 +572,29 @@ function buildDailySummary(sender: string, ownerName: string, reply: Reply): str
   const dead = deadStockSection(sender, reply);
   if (dead.length > 0) lines.push("", ...dead);
 
+  const demand = demandSection(sender, reply);
+  if (demand.length > 0) lines.push("", ...demand);
+
   return lines.join("\n");
+}
+
+/** Forward-looking demand nudges: upcoming festival + weekend bestseller prep. */
+function demandSection(sender: string, reply: Reply, now: Date = new Date()): string[] {
+  const lines: string[] = [];
+  const fest = agent.upcomingFestival(now);
+  if (fest) lines.push(reply.festivalNudge(fest.name, fest.daysAway));
+
+  if (agent.isTomorrowWeekend(now)) {
+    const movers = agent.topMovers(sender, now);
+    if (movers.length > 0) {
+      lines.push(reply.demandWeekendHeader);
+      for (const m of movers) {
+        const perDay = m.perDay >= 1 ? String(Math.round(m.perDay)) : m.perDay.toFixed(1);
+        lines.push(reply.demandWeekendLine(capitalize(m.item), perDay));
+      }
+    }
+  }
+  return lines;
 }
 
 // ── Daily-summary scheduling (IST wall clock, timezone-independent) ──
